@@ -1,6 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { mkdirSync } from 'node:fs'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 import type {
   AppSettings
 } from '../shared/types'
@@ -18,7 +21,7 @@ import { detectCpu, describeCpu, getDefaultThreads } from './models/cpu-info.ts'
 //   Packaged:  <exe_dir>/models/  +  <exe_dir>/data/{jobs,output}/
 // ---------------------------------------------------------------------------
 function appRoot(): string {
-  return app.isPackaged ? require('node:path').dirname(app.getPath('exe')) : process.cwd()
+  return app.isPackaged ? dirname(app.getPath('exe')) : process.cwd()
 }
 const modelsDir = () => join(appRoot(), 'models')
 const dataRoot = () => join(appRoot(), 'data')

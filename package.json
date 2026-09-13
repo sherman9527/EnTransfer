@@ -5,7 +5,7 @@
   "private": true,
   "author": "EnTransfer",
   "license": "MIT",
-  "main": "out/main/index.js",
+  "main": "out/main/index.mjs",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -70,7 +70,8 @@
       "target": [
         "nsis",
         "zip"
-      ]
+      ],
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -78,7 +79,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "EnTransfer"
+      "shortcutName": "EnTransfer",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico"
     },
     "afterPack": "scripts/after-pack.js",
     "compression": "maximum"
