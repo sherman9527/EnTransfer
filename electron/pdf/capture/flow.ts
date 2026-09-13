@@ -33,6 +33,11 @@ import {
 
 const pdfjsLib = (pdfjsNamespace as unknown as { default?: typeof pdfjsNamespace }).default ?? pdfjsNamespace
 
+// pdfjs-dist uses a worker for PDF parsing. When bundled, the worker file
+// (pdf.worker.js) is copied to out/main/ by the postbuild script. Point
+// GlobalWorkerOptions at it so the fake-worker fallback can require() it.
+pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.js'
+
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
