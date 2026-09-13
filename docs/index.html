@@ -43,7 +43,8 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  .hero p { font-size: 1.25rem; color: var(--text-muted); margin-bottom: 32px; }
+  .hero p { font-size: 1.25rem; color: var(--text-muted); margin-bottom: 8px; }
+  .hero .tagline { font-size: 0.95rem; color: var(--purple); margin-bottom: 32px; }
   .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
   .btn {
     display: inline-flex; align-items: center; gap: 8px;
@@ -164,9 +165,10 @@
 <div class="hero">
   <h1>EnTransfer</h1>
   <p>英文PDF → 中文PDF 离线翻译工具 · 基于本地大模型 · 无需联网 · 保护隐私</p>
+  <p class="tagline">📦 开源项目 · 从源码编译 · 模型需单独下载</p>
   <div class="hero-buttons">
-    <a href="https://github.com/sherman9527/EnTransfer/releases" class="btn btn-primary">⬇ 下载安装包</a>
-    <a href="https://github.com/sherman9527/EnTransfer" class="btn btn-secondary">⌨ 查看源码</a>
+    <a href="https://github.com/sherman9527/EnTransfer" class="btn btn-primary">⌨ 克隆源码</a>
+    <a href="#model" class="btn btn-secondary">⬇ 下载模型</a>
   </div>
 </div>
 
@@ -213,50 +215,44 @@
 <!-- Quick Start -->
 <section>
   <h2><span class="icon">🚀</span> 快速开始</h2>
-  <p class="subtitle">五分钟完成安装和首次翻译</p>
-  <div class="steps">
-    <div class="step">
-      <div class="step-num">1</div>
-      <div class="step-content">
-        <h3>下载安装包</h3>
-        <p>从 <a href="https://github.com/sherman9527/EnTransfer/releases" style="color:var(--accent)">GitHub Releases</a> 下载最新版 <code class="inline-code">EnTransfer Setup x.x.x.exe</code></p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">2</div>
-      <div class="step-content">
-        <h3>安装应用</h3>
-        <p>双击安装包，按提示完成安装。支持自定义安装目录。</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">3</div>
-      <div class="step-content">
-        <h3>下载模型</h3>
-        <p>启动App后进入「模型管理」页面，点击推荐模型的「下载」按钮（约1.2GB）。或手动放置模型文件（见下方）。</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">4</div>
-      <div class="step-content">
-        <h3>拖入PDF</h3>
-        <p>将英文文字版PDF拖入App窗口，或点击「添加PDF」选择文件。</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">5</div>
-      <div class="step-content">
-        <h3>完成翻译</h3>
-        <p>任务自动排队翻译，完成后点击「打开文件夹」查看输出的中文PDF。</p>
-      </div>
-    </div>
+  <p class="subtitle">开源项目，从源码编译运行</p>
+
+  <h3 style="margin: 0 0 16px; font-size: 1.05rem;">环境要求</h3>
+  <ul style="color: var(--text-muted); margin-left: 24px; margin-bottom: 24px;">
+    <li>Node.js ≥ 18</li>
+    <li>Python ≥ 3.8（用于字体子集化，需 <code class="inline-code">pip install fonttools</code>）</li>
+    <li>Git</li>
+    <li>Windows 10/11（系统自带微软雅黑字体）</li>
+  </ul>
+
+  <h3 style="margin: 24px 0 16px; font-size: 1.05rem;">编译步骤</h3>
+<pre><code># 1. 克隆仓库
+git clone https://github.com/sherman9527/EnTransfer.git
+cd EnTransfer
+
+# 2. 安装依赖
+npm install
+
+# 3. 生成微软雅黑子集字体（首次编译需要，从系统字体提取）
+python scripts/subset-font.py
+
+# 4. 开发模式运行
+npm run dev
+
+# 5. 打包EXE（可选）
+npm run build
+npm run dist
+# 产物在 release/ 目录下</code></pre>
+
+  <div class="note" style="margin-top: 24px;">
+    <strong>⚠️ 模型需单独下载</strong> — 编译完成后还需下载翻译模型（约1.2GB），详见下方「模型配置」。没有模型无法运行翻译。
   </div>
 </section>
 
 <!-- Model Config (highlighted) -->
-<section>
+<section id="model">
   <h2><span class="icon">⭐</span> 模型配置</h2>
-  <p class="subtitle">翻译质量和速度的核心 — 选择并配置翻译模型</p>
+  <p class="subtitle">翻译质量和速度的核心 — 必须单独下载模型文件</p>
 
   <div class="model-box">
     <h3>推荐模型</h3>
@@ -266,32 +262,34 @@
       <div class="meta">体积 1.22GB · 翻译质量 4.9/5 · GPU约70 tok/s · 关闭thinking模式</div>
     </div>
 
+    <h4 style="margin: 0 0 16px; color: var(--text); font-size: 1rem;">📥 官方下载地址</h4>
     <div class="download-methods">
       <div class="method">
-        <h4>方式一：App内下载（推荐）</h4>
-        <p>启动App → 进入「模型管理」→ 点击推荐模型的「下载」按钮</p>
-        <p>下载过程显示进度、速度和剩余时间，完成后自动校验并显示「已就绪」。</p>
+        <h4>🇨🇳 ModelScope（国内推荐）</h4>
+        <p>阿里云官方模型平台，国内下载速度快</p>
+        <p style="margin-bottom: 8px;"><a href="https://modelscope.cn/models/Qwen/Qwen3-1.7B-GGUF" target="_blank">📦 模型主页</a></p>
+        <p><a href="https://modelscope.cn/models/Qwen/Qwen3-1.7B-GGUF/resolve/master/Qwen3-1.7B-Q4_K_M.gguf" target="_blank" style="font-weight: 600;">⬇ 直接下载 Q4_K_M.gguf</a></p>
       </div>
       <div class="method">
-        <h4>方式二：手动下载并放置</h4>
-        <p>从ModelScope下载模型文件：</p>
-        <p><a href="https://modelscope.cn/models/Qwen/Qwen3-1.7B-GGUF" target="_blank">📦 ModelScope 模型页</a></p>
-        <p><a href="https://modelscope.cn/models/Qwen/Qwen3-1.7B-GGUF/resolve/master/Qwen3-1.7B-Q4_K_M.gguf" target="_blank">⬇ 直接下载 Qwen3-1.7B-Q4_K_M.gguf</a></p>
+        <h4>🌍 HuggingFace（海外官方）</h4>
+        <p>Qwen官方HuggingFace账号，海外访问</p>
+        <p style="margin-bottom: 8px;"><a href="https://huggingface.co/Qwen/Qwen3-1.7B-GGUF" target="_blank">📦 模型主页</a></p>
+        <p><a href="https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf" target="_blank" style="font-weight: 600;">⬇ 直接下载 Q4_K_M.gguf</a></p>
       </div>
     </div>
 
     <div style="margin-top: 24px;">
       <h4 style="margin-bottom: 12px; color: var(--text);">📁 模型放置目录</h4>
-      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px;">将下载的 <code class="inline-code">.gguf</code> 文件放到以下目录，重启App后自动识别：</p>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px;">将下载的 <code class="inline-code">Qwen3-1.7B-Q4_K_M.gguf</code> 文件放到以下目录，重启App后自动识别：</p>
       <div class="path-block">
-        <span class="label">开发模式（从源码运行）：</span>
+        <span class="label">开发模式（npm run dev）：</span>
         &lt;项目根目录&gt;/models/
       </div>
       <div class="path-block" style="margin-top: 8px;">
-        <span class="label">安装后（默认路径）：</span>
-        C:\Users\&lt;用户名&gt;\AppData\Local\Programs\EnTransfer\data\models\
+        <span class="label">编译后运行（EXE同级目录）：</span>
+        &lt;exe所在目录&gt;/data/models/
       </div>
-      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 12px;">💡 portable模式下，模型目录在EXE同级的 <code class="inline-code">data/models/</code> 文件夹。</p>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 12px;">💡 也可以在App内「模型管理」页面点击下载按钮，自动下载到正确目录。</p>
     </div>
   </div>
 </section>
@@ -337,39 +335,6 @@
       </div>
     </div>
   </div>
-</section>
-
-<!-- Build from source -->
-<section>
-  <h2><span class="icon">🔧</span> 从源码编译</h2>
-  <p class="subtitle">开发者指南 — 从源码构建自己的版本</p>
-
-  <h3 style="margin: 24px 0 12px; font-size: 1.05rem;">环境要求</h3>
-  <ul style="color: var(--text-muted); margin-left: 24px; margin-bottom: 24px;">
-    <li>Node.js ≥ 18</li>
-    <li>Python ≥ 3.8（用于字体子集化，需 <code class="inline-code">pip install fonttools</code>）</li>
-    <li>Git</li>
-    <li>Windows 10/11（系统自带微软雅黑字体）</li>
-  </ul>
-
-  <h3 style="margin: 24px 0 12px; font-size: 1.05rem;">编译步骤</h3>
-<pre><code># 克隆仓库
-git clone https://github.com/sherman9527/EnTransfer.git
-cd EnTransfer
-
-# 安装依赖
-npm install
-
-# 生成子集字体（首次编译需要，从系统微软雅黑提取）
-python scripts/subset-font.py
-
-# 开发模式运行
-npm run dev
-
-# 打包EXE
-npm run build
-npm run dist
-# 产物在 release/ 目录下</code></pre>
 </section>
 
 <!-- System requirements & performance -->
@@ -422,11 +387,11 @@ npm run dist
 <footer>
   <div class="links">
     <a href="https://github.com/sherman9527/EnTransfer">GitHub 仓库</a>
-    <a href="https://github.com/sherman9527/EnTransfer/releases">下载 Releases</a>
     <a href="https://github.com/sherman9527/EnTransfer/issues">提交 Issue</a>
-    <a href="https://modelscope.cn/models/Qwen/Qwen3-1.7B-GGUF">模型下载 (ModelScope)</a>
+    <a href="https://modelscope.cn/models/Qwen/Qwen3-1.7B-GGUF">模型 (ModelScope)</a>
+    <a href="https://huggingface.co/Qwen/Qwen3-1.7B-GGUF">模型 (HuggingFace)</a>
   </div>
-  <p>EnTransfer · MIT License · 基于 Qwen3-1.7B 本地模型 · 离线翻译保护隐私</p>
+  <p>EnTransfer · MIT License · 开源项目，从源码编译 · 基于 Qwen3-1.7B 本地模型 · 离线翻译保护隐私</p>
 </footer>
 
 </body>
