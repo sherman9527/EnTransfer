@@ -11,7 +11,7 @@
 - 📋 **任务队列**：支持多PDF排队翻译，可暂停/恢复/取消
 - 💾 **断点续译**：checkpoint机制，崩溃后可恢复
 - 🔤 **微软雅黑字体**：中文渲染清晰，子集化嵌入减小体积
-- 📦 **单EXE安装包**：一键安装，portable模式数据随EXE走
+- 🛠️ **开源可自行编译**：clone源码，一条命令打包EXE
 
 ## 技术栈
 
@@ -25,26 +25,20 @@
 
 - Windows 10/11 64位
 - 内存：≥8GB（CPU模式）/ ≥4GB显存（GPU模式，推荐NVIDIA GTX 1060及以上）
-- 磁盘空间：≥3GB（含模型1.2GB + 安装包）
+- 磁盘空间：≥3GB（含模型1.2GB + 编译产物）
 
-## 快速开始
+## 快速开始（从源码编译）
 
-### 方式一：下载安装包（推荐）
+本项目不提供预编译EXE下载，请自行clone源码编译。
 
-1. 从 [Releases](https://github.com/sherman9527/EnTransfer/releases) 下载最新版 `EnTransfer Setup x.x.x.exe`
-2. 双击安装
-3. 启动App，按提示下载模型（或手动放置模型文件）
-4. 拖入英文PDF，开始翻译
-
-### 方式二：从源码编译
-
-#### 环境要求
+### 环境要求
 
 - Node.js ≥ 18
 - Python ≥ 3.8（用于字体子集化，需安装fonttools：`pip install fonttools`）
 - Git
+- Windows 10/11（字体子集化依赖系统微软雅黑 `C:\Windows\Fonts\msyh.ttc`）
 
-#### 编译步骤
+### 编译步骤
 
 ```bash
 # 克隆仓库
@@ -55,7 +49,6 @@ cd EnTransfer
 npm install
 
 # 生成子集字体（首次编译需要，从系统微软雅黑提取）
-# Windows系统自带 C:\Windows\Fonts\msyh.ttc
 python scripts/subset-font.py
 
 # 开发模式运行
