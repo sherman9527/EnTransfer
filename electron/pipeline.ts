@@ -19,6 +19,7 @@
 import { promises as fsp } from 'node:fs'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
+import { app } from 'electron'
 import type { TranslationJob } from '../shared/types'
 import type { TranslationPipeline } from './queue/manager'
 import { CheckpointStore } from './queue/checkpoint.ts'
@@ -50,18 +51,15 @@ function clamp100(n: number): number {
 
 /**
  * Resolve the bundled CJK TTF across dev and packaged builds.
+ * In packaged mode, app.getAppPath() returns the asar path; Node reads
+ * files inside asar transparently. In dev, it returns the project root.
  */
 export function resolveFontPath(): string {
-  const resourcesPath = (process as unknown as { resourcesPath?: string }).resourcesPath
-  const candidates = resourcesPath
-    ? [
-        path.join(resourcesPath, 'assets', 'fonts', 'MicrosoftYaHei-Regular-subset.ttf'),
-        path.join(resourcesPath, 'assets', 'fonts', 'NotoSansSC-Subset.ttf'),
-      ]
-    : [
-        path.join(process.cwd(), 'assets', 'fonts', 'MicrosoftYaHei-Regular-subset.ttf'),
-        path.join(process.cwd(), 'assets', 'fonts', 'NotoSansSC-Subset.ttf'),
-      ]
+  const appRoot = app?.getAppPath?.() ?? process.cwd()
+  const candidates = [
+    path.join(appRoot, 'assets', 'fonts', 'MicrosoftYaHei-Regular-subset.ttf'),
+    path.join(appRoot, 'assets', 'fonts', 'NotoSansSC-Subset.ttf'),
+  ]
   for (const p of candidates) if (existsSync(p)) return p
   return candidates[0]
 }

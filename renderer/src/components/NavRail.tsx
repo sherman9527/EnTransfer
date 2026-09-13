@@ -17,7 +17,7 @@ export function NavRail({ active, onNavigate }: NavRailProps) {
   return (
     <nav className="flex w-16 flex-col items-center gap-2 border-r border-line bg-card py-4">
       <div className="mb-4 flex h-9 w-9 items-center justify-center overflow-hidden rounded-btn">
-        <img src="/icon.png" alt="EnTransfer" className="h-full w-full object-contain" />
+        <img src="./icon.png" alt="EnTransfer" className="h-full w-full object-contain" />
       </div>
       {items.map(({ id, label, Icon }) => {
         const isActive = id === active

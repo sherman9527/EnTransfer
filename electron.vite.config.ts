@@ -54,6 +54,9 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, 'renderer'),
+    // Relative base so asset URLs (./icon.png) resolve correctly under
+    // Electron's file:// protocol (absolute /icon.png would hit filesystem root).
+    base: './',
     resolve: {
       alias: {
         '@': resolve(__dirname, 'renderer/src')

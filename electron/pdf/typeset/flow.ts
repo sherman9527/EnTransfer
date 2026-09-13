@@ -171,9 +171,11 @@ export async function typesetFlow(
 
   // Embed pre-subsetted Microsoft YaHei (Regular + Bold) and Consolas.
   // Subsetting done at build time via scripts/subset-yahei.py (fontTools).
-  const fontsDir = path.resolve(process.cwd(), 'assets', 'fonts')
+  // Resolve all fonts from the same directory as the regular font (passed via
+  // options.fontPath from pipeline.ts, which uses app.getAppPath()).
   const regularPath = options.fontPath
-    ?? path.join(fontsDir, 'MicrosoftYaHei-Regular-subset.ttf')
+    ?? path.resolve(process.cwd(), 'assets', 'fonts', 'MicrosoftYaHei-Regular-subset.ttf')
+  const fontsDir = path.dirname(regularPath)
   const boldPath = path.join(fontsDir, 'MicrosoftYaHei-Bold-subset.ttf')
   const monoPath = path.join(fontsDir, 'Consolas-subset.ttf')
 
