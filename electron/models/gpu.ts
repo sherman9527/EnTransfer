@@ -12,7 +12,7 @@
 //   - Detection is defensive: any failure -> { type: null } -> CPU fallback.
 //   - We never throw from detectGpu(); callers decide what to do.
 
-import { getLlama } from 'node-llama-cpp'
+import { loadLlamaCpp } from './llama-cpp-loader.ts'
 
 export type GpuBackend = 'vulkan'
 
@@ -45,6 +45,7 @@ export type DevicePreference = 'auto' | 'cpu' | 'gpu'
  */
 export async function detectGpu(): Promise<GpuInfo> {
   try {
+    const { getLlama } = await loadLlamaCpp()
     const llama = await getLlama({ gpu: 'vulkan' })
 
     // The backend loaded but may still be CPU-only if the Vulkan loader

@@ -7,10 +7,7 @@
 // model ships / is listed; see docs/MODEL-BENCHMARK.md for the rationale.
 import { existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { createRequire } from 'node:module'
 import type { ModelInfo, ModelStatus } from '../../shared/types'
-
-const require = createRequire(import.meta.url)
 
 // ---------------------------------------------------------------------------
 // Built-in model catalogue (single converged model)

@@ -14,8 +14,7 @@ export default defineConfig({
       },
       rollupOptions: {
         output: {
-          format: 'es',
-          entryFileNames: 'index.mjs'
+          entryFileNames: 'index.js'
         }
       }
     }

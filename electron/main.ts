@@ -1,9 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { mkdirSync } from 'node:fs'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 import type {
   AppSettings
 } from '../shared/types'

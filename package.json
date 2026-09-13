@@ -1,11 +1,11 @@
 {
   "name": "entransfer",
   "version": "0.1.0",
-  "description": "EnTransfer — local PDF translation & typesetting desktop app",
+  "description": "EnTransfer 鈥?local PDF translation & typesetting desktop app",
   "private": true,
   "author": "EnTransfer",
   "license": "MIT",
-  "main": "out/main/index.mjs",
+  "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",

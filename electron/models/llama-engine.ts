@@ -7,17 +7,17 @@
 // same code drives Hy-MT2 (Chinese prompt) and generic instruct models
 // (English prompt) alike.
 import os from 'node:os'
-import {
-  getLlama,
+import type {
+  Llama,
+  LlamaContext,
+  LlamaModel,
+  LlamaModelOptions,
+  ChatWrapper,
+  Token,
   LlamaChatSession,
-  JinjaTemplateChatWrapper,
-  type Llama,
-  type LlamaContext,
-  type LlamaModel,
-  type LlamaModelOptions,
-  type ChatWrapper,
-  type Token
+  JinjaTemplateChatWrapper
 } from 'node-llama-cpp'
+import { loadLlamaCpp } from './llama-cpp-loader.ts'
 import type {
   LoadOptions,
   TranslateOpts,
@@ -204,6 +204,9 @@ export class LlamaCppEngine {
 
   private async doLoad(modelPath: string, options?: LoadOptions): Promise<void> {
     await this.dispose()
+
+    // node-llama-cpp is ESM-only; load it once via dynamic import (cached by loader).
+    const { getLlama, JinjaTemplateChatWrapper, LlamaChatSession } = await loadLlamaCpp()
 
     // ---- Resolve device preference -------------------------------------
     const device: DevicePreference = options?.device ?? this.device
