@@ -6,7 +6,9 @@ node_modules/
 # Build output
 out/
 dist/
-build/
+build/*
+!build/icon.ico
+!build/icon.png
 release/
 *.log
 *.exe
