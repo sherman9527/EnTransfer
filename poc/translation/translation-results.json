@@ -1,0 +1,172 @@
+{
+  "summary": {
+    "model": "Hy-MT2-1.8B-Q4_K_M",
+    "modelPath": "models\\Hy-MT2-1.8B.Q4_K_M.gguf",
+    "modelFileSizeMB": 1080.6,
+    "contextSize": 4096,
+    "threads": 8,
+    "cpu": "12th Gen Intel(R) Core(TM) i5-12600KF",
+    "totalCores": 16,
+    "loadTimeMs": 1848,
+    "avgTokensPerSec": 7.44,
+    "minTokensPerSec": 7.26,
+    "maxTokensPerSec": 7.56,
+    "avgElapsedSec": 17.86,
+    "totalCompletionTokens": 664,
+    "peakRssMB": 1582.8,
+    "memoryAfterLoadMB": 193.4,
+    "timestamp": "2026-09-12T07:35:39.726Z"
+  },
+  "results": [
+    {
+      "id": 1,
+      "source": "Garbage collection is a form of automatic memory management. The garbage collector attempts to reclaim memory that was allocated by the program but is no longer referenced; such memory is called garbage. In modern garbage-collected systems, the collector maintains a bitmap of used memory pages and periodically scans the heap to identify objects that are no longer reachable from the root set. This process, known as mark-and-sweep, divides the collection cycle into two phases. During the mark phase, the collector traverses all live objects starting from known roots such as global variables and stack frames. In the sweep phase, memory occupied by unreachable objects is reclaimed and returned to the allocator. The main advantage of this approach is that it eliminates manual memory management errors such as dangling pointers and double-free vulnerabilities.",
+      "translation": "垃圾收集是一种自动内存管理方式。垃圾收集器会尝试回收由程序分配但不再被引用的内存，这种内存被称为垃圾。在现代垃圾收集系统中，收集器维护一个已使用内存页的位图，并定期扫描堆以识别无法从根集访问的对象。这种称为“标记-清除”的过程将收集周期分为两个阶段。在标记阶段，收集器从已知根节点（如全局变量和栈帧）开始遍历所有存活对象。在清除阶段，被不可达对象占用的内存会被回收并返回给分配器。这种方法的主要优势在于能够消除手动内存管理错误，如悬垂指针和双重释放漏洞。",
+      "sourceChars": 864,
+      "translationChars": 227,
+      "elapsedMs": 18312,
+      "promptTokens": 206,
+      "completionTokens": 133,
+      "tokensPerSec": 7.26,
+      "memoryBefore": {
+        "rssMB": 478.1,
+        "heapUsedMB": 36.1,
+        "externalMB": 2.3
+      },
+      "memoryAfter": {
+        "rssMB": 1576.6,
+        "heapUsedMB": 30.1,
+        "externalMB": 2.3
+      },
+      "quality": {
+        "terminology": 5,
+        "fluency": 5,
+        "longSentence": 5,
+        "completeness": 5,
+        "codePreservation": 5,
+        "overall": 5,
+        "notes": "术语准确(垃圾收集/位图/标记-清除/根集/悬垂指针/双重释放),长句拆分自然,无漏译"
+      }
+    },
+    {
+      "id": 2,
+      "source": "Relational databases enforce ACID properties to ensure transaction reliability. Atomicity guarantees that a transaction either completes entirely or not at all. Consistency ensures that a transaction brings the database from one valid state to another. Isolation prevents concurrent transactions from interfering with each other, and durability guarantees that committed transactions persist even after a system crash. In practice, database administrators often tune isolation levels to balance consistency and throughput. The SERIALIZABLE level provides the strongest guarantees but may result in higher lock contention and reduced concurrency. Conversely, the READ COMMITTED level allows higher throughput at the cost of non-repeatable reads within a transaction. Most production systems default to READ COMMITTED, which represents a reasonable trade-off between correctness and performance.",
+      "translation": "关系型数据库强制执行 ACID 特性，以确保事务的可靠性。原子性确保事务要么完全执行，要么完全不执行。一致性确保事务将数据库从一种有效状态转换为另一种有效状态。隔离性防止并发事务相互干扰，持久性确保已提交的事务在系统崩溃后仍能保留。实际上，数据库管理员通常调整隔离级别以平衡一致性与吞吐量。 SERIALIZABLE 级别提供最强的保障，但可能导致锁竞争加剧和并发降低。相反，READ COMMITTED 级别则能提升吞吐量，但会引入事务内的不可重复读取问题。大多数生产系统默认采用 READ COMMITTED 级别，这代表了正确性与性能之间的合理权衡。",
+      "sourceChars": 893,
+      "translationChars": 278,
+      "elapsedMs": 18648,
+      "promptTokens": 198,
+      "completionTokens": 141,
+      "tokensPerSec": 7.56,
+      "memoryBefore": {
+        "rssMB": 1580.7,
+        "heapUsedMB": 33.7,
+        "externalMB": 2.3
+      },
+      "memoryAfter": {
+        "rssMB": 1579.1,
+        "heapUsedMB": 39.9,
+        "externalMB": 2.4
+      },
+      "quality": {
+        "terminology": 5,
+        "fluency": 5,
+        "longSentence": 5,
+        "completeness": 5,
+        "codePreservation": 5,
+        "overall": 5,
+        "notes": "ACID术语全对,SERIALIZABLE/READ COMMITTED保留英文正确,锁竞争/不可重复读翻译准确"
+      }
+    },
+    {
+      "id": 3,
+      "source": "To configure the reverse proxy, update the Nginx configuration file located at /etc/nginx/nginx.conf. Add the following block inside the http context:\n\n```\nupstream backend {\n    server 127.0.0.1:8080;\n    keepalive 64;\n}\n\nserver {\n    listen 443 ssl;\n    server_name api.example.com;\n    location / {\n        proxy_pass http://backend;\n        proxy_set_header Connection \"\";\n    }\n}\n```\n\nAfter modifying the configuration, run `nginx -t` to validate the syntax, then execute `systemctl reload nginx` to apply the changes without dropping existing connections. Ensure that the SSL certificate at /etc/ssl/certs/api.example.com.crt is valid and has not expired.",
+      "translation": "要配置反向代理，请更新位于 /etc/nginx/nginx.conf 的 Nginx 配置文件。在 http 上下文中添加以下代码块：\n\n```\nupstream backend {\n    server 127.0.0.1:8080;\n    keepalive 64;\n}\n\nserver {\n    listen 443 ssl;\n    server_name api.example.com;\n    location / {\n        proxy_pass http://backend;\n        proxy_set_header Connection \"\";\n    }\n}\n```\n\n修改配置后，运行 `nginx -t` 验证语法，然后执行 `systemctl reload nginx` 以应用更改，而不会中断现有连接。请确保 /etc/ssl/certs/api.example.com.crt 中的 SSL 证书有效且未过期。",
+      "sourceChars": 661,
+      "translationChars": 434,
+      "elapsedMs": 19615,
+      "promptTokens": 199,
+      "completionTokens": 145,
+      "tokensPerSec": 7.39,
+      "memoryBefore": {
+        "rssMB": 1582.3,
+        "heapUsedMB": 43.9,
+        "externalMB": 2.3
+      },
+      "memoryAfter": {
+        "rssMB": 1579.3,
+        "heapUsedMB": 36.1,
+        "externalMB": 2.4
+      },
+      "quality": {
+        "terminology": 5,
+        "fluency": 5,
+        "longSentence": 5,
+        "completeness": 5,
+        "codePreservation": 5,
+        "overall": 5,
+        "notes": "代码块完整保留,路径/命令/IP/端口原样不动,nginx -t和systemctl reload正确保留"
+      }
+    },
+    {
+      "id": 4,
+      "source": "The TCP three-way handshake establishes a reliable connection between two hosts. The client initiates the process by sending a SYN packet with an initial sequence number. The server responds with a SYN-ACK packet, acknowledging the client's sequence number and proposing its own. Finally, the client sends an ACK packet to acknowledge the server's sequence number. At this point, both sides have confirmed that their send and receive buffers are operational. This handshake prevents stale connection requests from being interpreted as new connections, which could lead to data corruption. Network engineers should monitor SYN flood attacks, where an attacker sends numerous SYN packets without completing the handshake, exhausting the server's connection queue.",
+      "translation": "TCP三次握手机制在两台主机之间建立可靠的连接。客户端通过发送带有初始序列号的 SYN 包来启动该过程。服务器则回复一个 SYN-ACK 包，确认客户的序列号并提出自己的序列号。最后，客户端发送一个 ACK 包来确认服务器的序列号。此时，双方都确认了它们的发送和接收缓冲区正常运作。这种握手机制可以防止过时的连接请求被误认为是新连接，从而避免数据损坏。网络工程师应监控 SYN 洪水攻击，即攻击者发送大量 SYN 包但未完成握手，从而耗尽服务器的连接队列。",
+      "sourceChars": 761,
+      "translationChars": 228,
+      "elapsedMs": 15679,
+      "promptTokens": 181,
+      "completionTokens": 118,
+      "tokensPerSec": 7.53,
+      "memoryBefore": {
+        "rssMB": 1582.1,
+        "heapUsedMB": 38.6,
+        "externalMB": 2.3
+      },
+      "memoryAfter": {
+        "rssMB": 1582.8,
+        "heapUsedMB": 31,
+        "externalMB": 2.3
+      },
+      "quality": {
+        "terminology": 5,
+        "fluency": 5,
+        "longSentence": 5,
+        "completeness": 5,
+        "codePreservation": 5,
+        "overall": 5,
+        "notes": "TCP握手术语准确,SYN/SYN-ACK/ACK保留,SYN洪水攻击翻译正确"
+      }
+    },
+    {
+      "id": 5,
+      "source": "In a microservices architecture, each service owns its own database and communicates with other services through well-defined APIs. This approach improves modularity and allows teams to deploy services independently. However, it introduces challenges around data consistency across service boundaries. The Saga pattern addresses this by defining a sequence of local transactions, each updating a single service's database. If a later step fails, the Saga executes compensating transactions to roll back the changes made by earlier steps. Event-driven architectures often implement Sagas using a choreography style, where each service publishes events that trigger subsequent services. Alternatively, an orchestrator centrally controls the execution flow. Teams must carefully design idempotent operations to handle duplicate messages and partial failures gracefully.",
+      "translation": "在微服务架构中，每个服务拥有自己的数据库，并通过明确的 API 与其他服务进行通信。这种方式提高了模块性，使团队能够独立部署服务。然而，它也带来了跨服务边界的数据一致性问题。Saga 模式通过定义一系列局部事务来解决这一问题，每个事务仅更新一个服务的数据库。如果后续步骤失败，Saga 会执行补偿事务以回滚之前步骤所做的更改。事件驱动架构通常使用编排方式实现 Saga，即每个服务发布事件以触发后续服务。或者，由调度器集中控制执行流程。团队必须精心设计幂等操作，以优雅地处理重复消息和部分失败情况。",
+      "sourceChars": 866,
+      "translationChars": 249,
+      "elapsedMs": 17025,
+      "promptTokens": 194,
+      "completionTokens": 127,
+      "tokensPerSec": 7.46,
+      "memoryBefore": {
+        "rssMB": 1583.9,
+        "heapUsedMB": 33.3,
+        "externalMB": 2.3
+      },
+      "memoryAfter": {
+        "rssMB": 1581.3,
+        "heapUsedMB": 38.8,
+        "externalMB": 2.4
+      },
+      "quality": {
+        "terminology": 4,
+        "fluency": 5,
+        "longSentence": 5,
+        "completeness": 5,
+        "codePreservation": 5,
+        "overall": 4.5,
+        "notes": "choreography/orchestrator略有混淆(协同vs编排),其余术语准确,幂等/补偿事务正确"
+      }
+    }
+  ]
+}

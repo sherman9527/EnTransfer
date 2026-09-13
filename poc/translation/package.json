@@ -1,0 +1,22 @@
+{
+  "name": "translation",
+  "version": "1.0.0",
+  "description": "POC: Hy-MT2-1.8B CPU translation inference via node-llama-cpp",
+  "main": "translate.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "translate": "node translate.js"
+  },
+  "keywords": [
+    "translation",
+    "llama.cpp",
+    "gguf",
+    "hy-mt2"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "node-llama-cpp": "^3.20.0"
+  }
+}

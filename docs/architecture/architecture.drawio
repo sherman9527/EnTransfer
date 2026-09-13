@@ -1,0 +1,184 @@
+<mxfile host="app.diagrams.net" modified="2026-09-12T00:00:00.000Z" agent="EnTransfer" version="24.0.0" type="device">
+  <diagram id="architecture" name="EnTransfer Architecture">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="EnTransfer — 英文PDF→中文PDF 离线翻译系统架构" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1;fontColor=#1a1a2e;" vertex="1" parent="1">
+          <mxGeometry x="427" y="20" width="800" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Renderer Process -->
+        <mxCell id="renderer-box" value="React 渲染进程 (UI)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4f8;strokeColor=#2980b9;strokeWidth=2;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="90" width="680" height="320" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui-queue" value="📋 任务队列界面&#10;• 任务列表/状态/进度&#10;• 暂停/恢复/取消/删除&#10;• 打开输出文件夹" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2980b9;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="100" y="140" width="200" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui-models" value="📦 模型管理界面&#10;• 模型列表(名称/大小/状态)&#10;• 下载进度条(百分比/速度)&#10;• 安装/校验/Ready状态" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2980b9;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="320" y="140" width="200" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui-settings" value="⚙️ 设置界面&#10;• 翻译引擎选择&#10;• 线程数/参数调整&#10;• 镜像源配置&#10;• 输出路径" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2980b9;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="540" y="140" width="200" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui-store" value="Zustand Store (queueStore / modelStore / settingsStore)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8f0;strokeColor=#2980b9;dashed=1;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="100" y="270" width="640" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- IPC Bridge -->
+        <mxCell id="ipc" value="IPC (contextBridge / ipcRenderer / ipcMain)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fef3e2;strokeColor=#e67e22;strokeWidth=2;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="330" y="430" width="180" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-ipc1" style="endArrow=classic;html=1;strokeColor=#e67e22;strokeWidth=2;" edge="1" parent="1" source="ui-store" target="ipc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Main Process -->
+        <mxCell id="main-box" value="Electron 主进程 (Node.js)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f8e8;strokeColor=#27ae60;strokeWidth=2;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="540" width="1490" height="500" as="geometry" />
+        </mxCell>
+
+        <!-- Queue Manager -->
+        <mxCell id="queue-box" value="任务队列管理器" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#27ae60;strokeWidth=1;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="100" y="590" width="340" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="queue-sm" value="State Machine&#10;queued → extracting → translating&#10;→ typesetting → exporting → done&#10;↘ paused / canceled / error" style="whiteSpace=wrap;html=1;fillColor=#eafaf1;strokeColor=#27ae60;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="115" y="625" width="310" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="queue-cp" value="Checkpoint (崩溃安全)&#10;• atomic tmp→rename 写入&#10;• append-only jsonl 日志&#10;• 按页/段粒度保存进度&#10;• 崩溃后从断点恢复" style="whiteSpace=wrap;html=1;fillColor=#eafaf1;strokeColor=#27ae60;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="115" y="705" width="310" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- Pipeline -->
+        <mxCell id="pipeline-box" value="翻译流水线 (Pipeline)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#27ae60;strokeWidth=1;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="470" y="590" width="620" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pipe-capture" value="① 结构提取 (Capture)&#10;pdfjs-dist&#10;文本块+坐标+字体&#10;→ 阅读顺序排序&#10;→ 元素分类&#10;→ 段落合并" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="485" y="625" width="140" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pipe-translate" value="② 翻译 (Translate)&#10;node-llama-cpp&#10;Hy-MT2-1.8B Q4_K_M&#10;仅正文+标题&#10;占位符保护&#10;分批+多线程" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="640" y="625" width="140" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pipe-typeset" value="③ 重排版 (Typeset)&#10;pdf-lib + fontkit&#10;Noto Sans SC 嵌入&#10;清除旧文本层&#10;自适应字号&#10;混合CJK/Latin绘制" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="795" y="625" width="140" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pipe-export" value="④ 导出 (Export)&#10;pdf.save()&#10;单次保存&#10;体积校验&#10;质量检查" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5f5e3;strokeColor=#27ae60;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="950" y="625" width="125" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-p1" style="endArrow=classic;html=1;strokeColor=#27ae60;strokeWidth=1.5;" edge="1" parent="1" source="pipe-capture" target="pipe-translate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow-p2" style="endArrow=classic;html=1;strokeColor=#27ae60;strokeWidth=1.5;" edge="1" parent="1" source="pipe-translate" target="pipe-typeset">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow-p3" style="endArrow=classic;html=1;strokeColor=#27ae60;strokeWidth=1.5;" edge="1" parent="1" source="pipe-typeset" target="pipe-export">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Model Manager -->
+        <mxCell id="model-box" value="模型管理器" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#27ae60;strokeWidth=1;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="590" width="430" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="model-dl" value="下载管理&#10;• hf-mirror.com 镜像&#10;• HTTP Range 断点续传&#10;• 进度: 百分比/大小/速度/ETR&#10;• SHA256 校验" style="whiteSpace=wrap;html=1;fillColor=#eafaf1;strokeColor=#27ae60;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1135" y="625" width="200" height="75" as="geometry" />
+        </mxCell>
+
+        <mxCell id="model-engine" value="翻译引擎&#10;• node-llama-cpp 原生绑定&#10;• GGUF 模型加载&#10;• CPU 推理 (无GPU)&#10;• 上下文/会话管理" style="whiteSpace=wrap;html=1;fillColor=#eafaf1;strokeColor=#27ae60;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1345" y="625" width="190" height="75" as="geometry" />
+        </mxCell>
+
+        <mxCell id="model-registry" value="模型注册表 (内置清单)&#10;Hy-MT2-1.8B Q4_K_M (~1.2GB) [主推荐]&#10;Qwen2.5-3B Q4_K_M (~2.0GB) [备选]&#10;状态: 未下载/下载中/安装中/Ready/失败" style="whiteSpace=wrap;html=1;fillColor=#eafaf1;strokeColor=#27ae60;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1135" y="710" width="400" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Data Flow Bottom -->
+        <mxCell id="data-box" value="数据持久化 (%APPDATA%/EnTransfer/)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fdf2e9;strokeColor=#e67e22;strokeWidth=1;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="100" y="820" width="1450" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="data-jobs" value="jobs/&lt;jobId&gt;/&#10;checkpoint.json&#10;translation.jsonl&#10;extracted.json" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#e67e22;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="120" y="855" width="220" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="data-models" value="models/&#10;Hy-MT2-1.8B.Q4_K_M.gguf&#10;Qwen2.5-3B.Q4_K_M.gguf" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#e67e22;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="360" y="855" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="data-output" value="output/&#10;*.zh.pdf (翻译结果)&#10;可打开文件夹查看" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#e67e22;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="660" y="855" width="250" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="data-config" value="config.json&#10;settings / 镜像源 / 引擎选择" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#e67e22;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="930" y="855" width="250" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="data-logs" value="logs/&#10;运行日志 / 错误日志" style="whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#e67e22;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="855" width="200" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- External -->
+        <mxCell id="ext-box" value="外部资源" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4ecf7;strokeColor=#8e44ad;strokeWidth=1;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="800" y="90" width="770" height="320" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ext-hf" value="🤗 HuggingFace 镜像&#10;https://hf-mirror.com&#10;模型下载 (GGUF)&#10;• bartowski/Hy-MT2-1.8B-GGUF&#10;• Qwen/Qwen2.5-3B-Instruct-GGUF" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#8e44ad;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="820" y="140" width="340" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ext-font" value="🔤 中文字体&#10;Noto Sans SC (思源黑体)&#10;SIL OFL 开源&#10;TTF 格式 (避免 fontkit CFF bug)&#10;Regular + Bold&#10;项目内置 assets/fonts/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#8e44ad;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="140" width="370" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ext-pdf" value="📄 输入 PDF&#10;英文文字版 (非扫描)&#10;Manning 技术书籍示例&#10;含: 正文/标题/图片/公式/表格/代码块" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#8e44ad;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="820" y="270" width="340" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ext-npm" value="📦 npm 镜像&#10;https://registry.npmmirror.com&#10;依赖安装加速" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#8e44ad;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="270" width="370" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Connections main process -->
+        <mxCell id="arrow-ipc2" style="endArrow=classic;html=1;strokeColor=#e67e22;strokeWidth=2;" edge="1" parent="1" source="ipc" target="queue-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-q-pipe" style="endArrow=classic;html=1;strokeColor=#27ae60;strokeWidth=1.5;dashed=1;" edge="1" parent="1" source="queue-box" target="pipeline-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-pipe-model" style="endArrow=classic;html=1;strokeColor=#27ae60;strokeWidth=1.5;dashed=1;" edge="1" parent="1" source="pipe-translate" target="model-engine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-model-hf" style="endArrow=classic;html=1;strokeColor=#8e44ad;strokeWidth=1.5;dashed=1;" edge="1" parent="1" source="model-dl" target="ext-hf">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1235" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="图例: ━━ 实线=直接调用 ┄┄ 虚线=数据/事件流 ◆=IPC桥接" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#666;" vertex="1" parent="1">
+          <mxGeometry x="500" y="1050" width="650" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

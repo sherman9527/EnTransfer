@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EnTransfer — 英文PDF → 中文PDF 离线翻译工具</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0d1117;
+    --bg-card: #161b22;
+    --bg-code: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-hover: #79b8ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --purple: #bc8cff;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 80px 24px 60px;
+    background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #58a6ff, #bc8cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero p { font-size: 1.25rem; color: var(--text-muted); margin-bottom: 32px; }
+  .hero-buttons { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 28px; border-radius: 8px; font-size: 1rem;
+    font-weight: 600; text-decoration: none; transition: all 0.2s;
+    border: 1px solid transparent;
+  }
+  .btn-primary { background: var(--accent); color: #0d1117; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-secondary { background: transparent; color: var(--text); border-color: var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Sections */
+  section { padding: 56px 0; border-bottom: 1px solid var(--border); }
+  section h2 {
+    font-size: 1.75rem; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  section h2 .icon { font-size: 1.5rem; }
+  section .subtitle { color: var(--text-muted); margin-bottom: 32px; }
+
+  /* Features grid */
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+  .feature-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; transition: border-color 0.2s;
+  }
+  .feature-card:hover { border-color: var(--accent); }
+  .feature-card .icon { font-size: 2rem; margin-bottom: 12px; }
+  .feature-card h3 { font-size: 1.1rem; margin-bottom: 8px; }
+  .feature-card p { color: var(--text-muted); font-size: 0.95rem; }
+
+  /* Steps */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: flex; gap: 20px; padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%;
+    background: var(--accent); color: #0d1117; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+  }
+  .step-content h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .step-content p { color: var(--text-muted); font-size: 0.95rem; }
+
+  /* Model config (highlighted) */
+  .model-box {
+    background: var(--bg-card); border: 2px solid var(--accent);
+    border-radius: 12px; padding: 32px; margin-top: 24px;
+  }
+  .model-box h3 { font-size: 1.2rem; margin-bottom: 16px; color: var(--accent); }
+  .model-recommend {
+    background: var(--bg-code); border-radius: 8px; padding: 16px 20px;
+    margin-bottom: 24px; border-left: 4px solid var(--green);
+  }
+  .model-recommend .label { color: var(--green); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
+  .model-recommend .name { font-size: 1.2rem; font-weight: 700; margin: 4px 0; }
+  .model-recommend .meta { color: var(--text-muted); font-size: 0.9rem; }
+  .download-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 640px) { .download-methods { grid-template-columns: 1fr; } }
+  .method { background: var(--bg-code); border-radius: 8px; padding: 20px; }
+  .method h4 { font-size: 1rem; margin-bottom: 12px; color: var(--orange); }
+  .method p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 12px; }
+  .method a { color: var(--accent); text-decoration: none; }
+  .method a:hover { text-decoration: underline; }
+  .path-block {
+    background: #0d1117; border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px 16px; font-family: "Consolas", "Courier New", monospace;
+    font-size: 0.85rem; color: var(--green); margin-top: 8px; word-break: break-all;
+  }
+  .path-block .label { color: var(--text-muted); display: block; margin-bottom: 4px; }
+
+  /* Code blocks */
+  pre {
+    background: var(--bg-code); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px; overflow-x: auto;
+    font-family: "Consolas", "Courier New", monospace; font-size: 0.9rem;
+    line-height: 1.6; margin: 16px 0;
+  }
+  code { font-family: "Consolas", "Courier New", monospace; }
+  .inline-code {
+    background: var(--bg-code); padding: 2px 8px; border-radius: 4px;
+    font-size: 0.9em; color: var(--green);
+  }
+
+  /* Tables */
+  .perf-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  .perf-table th, .perf-table td {
+    padding: 12px 16px; text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .perf-table th { color: var(--text-muted); font-weight: 600; font-size: 0.9rem; }
+  .perf-table td { font-size: 0.95rem; }
+  .perf-table tr:hover { background: var(--bg-card); }
+
+  /* Notes */
+  .note {
+    background: rgba(210, 153, 34, 0.1); border-left: 4px solid var(--orange);
+    border-radius: 0 8px 8px 0; padding: 16px 20px; margin: 16px 0;
+  }
+  .note strong { color: var(--orange); }
+
+  /* Footer */
+  footer {
+    text-align: center; padding: 40px 24px; color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  footer .links { margin-bottom: 12px; display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>EnTransfer</h1>
+  <p>英文PDF → 中文PDF 离线翻译工具 · 基于本地大模型 · 无需联网 · 保护隐私</p>
+  <div class="hero-buttons">
+    <a href="https://github.com/sherman9527/EnTransfer/releases" class="btn btn-primary">⬇ 下载安装包</a>
+    <a href="https://github.com/sherman9527/EnTransfer" class="btn btn-secondary">⌨ 查看源码</a>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- Features -->
+<section>
+  <h2><span class="icon">✨</span> 功能特性</h2>
+  <p class="subtitle">专为英文技术书籍翻译优化，离线运行，隐私安全</p>
+  <div class="features">
+    <div class="feature-card">
+      <div class="icon">🧠</div>
+      <h3>离线翻译</h3>
+      <p>基于 Qwen3-1.7B 本地大模型，无需联网，文档不上传服务器，完全保护隐私。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">🎨</div>
+      <h3>流式重排</h3>
+      <p>丢弃原PDF坐标信息，重新紧凑排版，中文无重叠无乱码，字号统一。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">⚡</div>
+      <h3>GPU加速</h3>
+      <p>自动检测Vulkan兼容GPU（NVIDIA/AMD/Intel），GTX 1060可达70 tok/s，无GPU自动回退CPU。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">📋</div>
+      <h3>任务队列</h3>
+      <p>支持多PDF排队翻译，可暂停/恢复/取消，checkpoint断点续译，崩溃后可恢复。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">🖼️</div>
+      <h3>结构保留</h3>
+      <p>图片/表格/公式/代码块自动识别并保留原文，仅翻译正文和标题。</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">🔤</div>
+      <h3>微软雅黑字体</h3>
+      <p>嵌入微软雅黑子集字体，中文渲染清晰美观，子集化控制体积。</p>
+    </div>
+  </div>
+</section>
+
+<!-- Quick Start -->
+<section>
+  <h2><span class="icon">🚀</span> 快速开始</h2>
+  <p class="subtitle">五分钟完成安装和首次翻译</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>下载安装包</h3>
+        <p>从 <a href="https://github.com/sherman9527/EnTransfer/releases" style="color:var(--accent)">GitHub Releases</a> 下载最新版 <code class="inline-code">EnTransfer Setup x.x.x.exe</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>安装应用</h3>
+        <p>双击安装包，按提示完成安装。支持自定义安装目录。</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>下载模型</h3>
+        <p>启动App后进入「模型管理」页面，点击推荐模型的「下载」按钮（约1.2GB）。或手动放置模型文件（见下方）。</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>拖入PDF</h3>
+        <p>将英文文字版PDF拖入App窗口，或点击「添加PDF」选择文件。</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <h3>完成翻译</h3>
+        <p>任务自动排队翻译，完成后点击「打开文件夹」查看输出的中文PDF。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Model Config (highlighted) -->
+<section>
+  <h2><span class="icon">⭐</span> 模型配置</h2>
+  <p class="subtitle">翻译质量和速度的核心 — 选择并配置翻译模型</p>
+
+  <div class="model-box">
+    <h3>推荐模型</h3>
+    <div class="model-recommend">
+      <div class="label">⭐ 推荐</div>
+      <div class="name">Qwen3-1.7B Q4_K_M</div>
+      <div class="meta">体积 1.22GB · 翻译质量 4.9/5 · GPU约70 tok/s · 关闭thinking模式</div>
+    </div>
+
+    <div class="download-methods">
+      <div class="method">
+        <h4>方式一：App内下载（推荐）</h4>
+        <p>启动App → 进入「模型管理」→ 点击推荐模型的「下载」按钮</p>
+        <p>下载过程显示进度、速度和剩余时间，完成后自动校验并显示「已就绪」。</p>
+      </div>
+      <div class="method">
+        <h4>方式二：手动下载并放置</h4>
+        <p>从ModelScope下载模型文件：</p>
+        <p><a href="https://modelscope.cn/models/Qwen/Qwen3-1.7B-GGUF" target="_blank">📦 ModelScope 模型页</a></p>
+        <p><a href="https://modelscope.cn/models/Qwen/Qwen3-1.7B-GGUF/resolve/master/Qwen3-1.7B-Q4_K_M.gguf" target="_blank">⬇ 直接下载 Qwen3-1.7B-Q4_K_M.gguf</a></p>
+      </div>
+    </div>
+
+    <div style="margin-top: 24px;">
+      <h4 style="margin-bottom: 12px; color: var(--text);">📁 模型放置目录</h4>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px;">将下载的 <code class="inline-code">.gguf</code> 文件放到以下目录，重启App后自动识别：</p>
+      <div class="path-block">
+        <span class="label">开发模式（从源码运行）：</span>
+        &lt;项目根目录&gt;/models/
+      </div>
+      <div class="path-block" style="margin-top: 8px;">
+        <span class="label">安装后（默认路径）：</span>
+        C:\Users\&lt;用户名&gt;\AppData\Local\Programs\EnTransfer\data\models\
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 12px;">💡 portable模式下，模型目录在EXE同级的 <code class="inline-code">data/models/</code> 文件夹。</p>
+    </div>
+  </div>
+</section>
+
+<!-- Usage -->
+<section>
+  <h2><span class="icon">📖</span> 使用说明</h2>
+  <p class="subtitle">日常使用操作指南</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>确保模型已就绪</h3>
+        <p>启动App，查看「模型管理」页面，模型状态应为「已就绪」。如未就绪，请先下载或手动放置模型。</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>添加PDF</h3>
+        <p>点击「添加PDF」按钮选择文件，或直接将英文文字版PDF拖入窗口。支持批量添加。</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>自动排队翻译</h3>
+        <p>任务自动加入队列，按顺序翻译。可在「任务队列」页面查看进度。</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>暂停/恢复/取消</h3>
+        <p>翻译过程中可随时暂停、恢复或取消任务。checkpoint机制确保崩溃后可断点续译。</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <h3>查看输出</h3>
+        <p>翻译完成后，点击「打开文件夹」查看输出的中文PDF。输出文件与源文件同目录。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Build from source -->
+<section>
+  <h2><span class="icon">🔧</span> 从源码编译</h2>
+  <p class="subtitle">开发者指南 — 从源码构建自己的版本</p>
+
+  <h3 style="margin: 24px 0 12px; font-size: 1.05rem;">环境要求</h3>
+  <ul style="color: var(--text-muted); margin-left: 24px; margin-bottom: 24px;">
+    <li>Node.js ≥ 18</li>
+    <li>Python ≥ 3.8（用于字体子集化，需 <code class="inline-code">pip install fonttools</code>）</li>
+    <li>Git</li>
+    <li>Windows 10/11（系统自带微软雅黑字体）</li>
+  </ul>
+
+  <h3 style="margin: 24px 0 12px; font-size: 1.05rem;">编译步骤</h3>
+<pre><code># 克隆仓库
+git clone https://github.com/sherman9527/EnTransfer.git
+cd EnTransfer
+
+# 安装依赖
+npm install
+
+# 生成子集字体（首次编译需要，从系统微软雅黑提取）
+python scripts/subset-font.py
+
+# 开发模式运行
+npm run dev
+
+# 打包EXE
+npm run build
+npm run dist
+# 产物在 release/ 目录下</code></pre>
+</section>
+
+<!-- System requirements & performance -->
+<section>
+  <h2><span class="icon">📊</span> 系统要求与性能</h2>
+  <p class="subtitle">硬件要求和实测性能数据</p>
+
+  <h3 style="margin: 24px 0 12px; font-size: 1.05rem;">系统要求</h3>
+  <table class="perf-table">
+    <tr><th>项目</th><th>最低要求</th><th>推荐配置</th></tr>
+    <tr><td>操作系统</td><td>Windows 10 64位</td><td>Windows 11 64位</td></tr>
+    <tr><td>内存</td><td>8GB</td><td>16GB+</td></tr>
+    <tr><td>GPU（可选）</td><td>—</td><td>Vulkan兼容显卡，≥4GB显存</td></tr>
+    <tr><td>磁盘空间</td><td>3GB（含模型）</td><td>5GB+</td></tr>
+  </table>
+
+  <h3 style="margin: 32px 0 12px; font-size: 1.05rem;">实测性能</h3>
+  <table class="perf-table">
+    <tr><th>模式</th><th>速度</th><th>353页书籍预估</th></tr>
+    <tr><td>GPU（GTX 1060 + Vulkan）</td><td>~70 tok/s</td><td>~35分钟</td></tr>
+    <tr><td>CPU（i5-12600KF，12线程）</td><td>~9 tok/s</td><td>~3.5小时</td></tr>
+  </table>
+  <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 8px;">50页E2E：GPU约3.5分钟，输出约14MB；353页源PDF → 约180页紧凑输出。</p>
+</section>
+
+<!-- Notes -->
+<section>
+  <h2><span class="icon">⚠️</span> 注意事项</h2>
+  <p class="subtitle">使用前请了解以下限制</p>
+  <div class="note">
+    <strong>仅支持文字版PDF</strong> — 不支持扫描件/图片PDF（无OCR功能）。如果PDF是图片扫描件，请先使用OCR工具转换为文字版。
+  </div>
+  <div class="note">
+    <strong>仅支持英文→中文</strong> — 当前模型针对英中翻译优化，不支持其他语言对。
+  </div>
+  <div class="note">
+    <strong>表格/公式/图片保留原文</strong> — 这些内容不翻译，原样嵌入输出PDF。正文和标题会翻译。
+  </div>
+  <div class="note">
+    <strong>首次运行需下载模型</strong> — 模型约1.2GB，建议在网络良好时下载。也可手动下载后放置到指定目录。
+  </div>
+  <div class="note">
+    <strong>GPU加速需要Vulkan驱动</strong> — NVIDIA/AMD/Intel显卡需安装最新显卡驱动以支持Vulkan。无GPU时自动回退CPU模式。
+  </div>
+</section>
+
+</div>
+
+<!-- Footer -->
+<footer>
+  <div class="links">
+    <a href="https://github.com/sherman9527/EnTransfer">GitHub 仓库</a>
+    <a href="https://github.com/sherman9527/EnTransfer/releases">下载 Releases</a>
+    <a href="https://github.com/sherman9527/EnTransfer/issues">提交 Issue</a>
+    <a href="https://modelscope.cn/models/Qwen/Qwen3-1.7B-GGUF">模型下载 (ModelScope)</a>
+  </div>
+  <p>EnTransfer · MIT License · 基于 Qwen3-1.7B 本地模型 · 离线翻译保护隐私</p>
+</footer>
+
+</body>
+</html>

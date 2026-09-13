@@ -1,0 +1,10 @@
+# GGUF model files - do not commit (large binaries)
+models/
+*.gguf
+*.gguf.part
+
+# Logs
+*.log
+
+# Node
+node_modules/

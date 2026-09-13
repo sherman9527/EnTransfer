@@ -1,0 +1,289 @@
+{
+  "meta": {
+    "source": "Manning.Think.Like.a.Software.Engineering.Manager.2024.6.pdf",
+    "totalCases": 40,
+    "note": "MT benchmark cases. english_text is the source; expected_notes lists key terms a good translation must preserve."
+  },
+  "cases": [
+    {
+      "id": "tech-body-01",
+      "category": "technical-body",
+      "source_page": 30,
+      "english_text": "EM is a versatile role that combines creativity and expertise, representing a fusion of a software engineer and a manager. An EM oversees the engineering team and also leads collaborations with other teams, known as cross-functional partners. Simply put: Engineering manager = Engineer + Manager. Titles may vary among companies, and this same role may be called software development manager, senior manager of software engineering, or site reliability engineering (SRE)/DevOps manager, but the core responsibilities and expectations remain consistent. Establishing a new company, especially in the tech sector, requires effective leadership across various domains, such as determining project goals, crafting execution strategies, and managing finances. In the initial phases of a startup, an individual often takes on the multiple responsibilities of engineering management, with engineers reporting directly to the chief technology officer (CTO) in the absence of a formal EM. As the company expands, this approach becomes impractical, leading to the customary introduction of multiple EMs in medium-sized enterprises. A company consisting entirely of engineers without EMs (or where EMs don’t do their job well) could lead to friction points such as the following:",
+      "expected_notes": "EM = engineering manager; keep CTO/SRE/DevOps acronyms"
+    },
+    {
+      "id": "tech-body-02",
+      "category": "technical-body",
+      "source_page": 32,
+      "english_text": "performance reviews, resource allocation, and strategic planning, ensuring alignment between their projects and the broader organizational objectives. Successful EMs possess qualities that enable them to manage at all levels, demonstrating empathy, soft skills, relationship-building, and effective planning and execution. These skills are refined through experience, particularly in handling ambiguous situations. EM is a unique position in engineering, and not all developers may be suited for or interested in transitioning to EM roles. Even a highly accomplished engineer may not necessarily excel as an EM, and vice versa. The fact is that career progression doesn’t necessarily lead to becoming an EM; alternative paths include remaining a software engineer (such as a solution architect or principal engineer) or exploring parallel roles such as product or project manager, business analyst, and DevOps architect. There’s no universal model, and it’s not unheard of to be a staff or principal engineer or lead architect while taking on some management responsibilities. Chapter 2 will delve into the career trajectories of software engineers and EMs, exploring commonly used titles and responsibilities associated with these roles. In the next section, we will further explore the nuances of the EM role.",
+      "expected_notes": "staff/principal engineer, solution architect titles"
+    },
+    {
+      "id": "tech-body-03",
+      "category": "technical-body",
+      "source_page": 288,
+      "english_text": "The tech industry has experienced a significant cultural shift with the advent of DevOps, which aims to integrate development and operations functions. DevOps promotes collaboration and communication between development and deployment teams to prevent friction and ensure smoother application delivery. In simple terms, DevOps combines software development and operations to maintain stable systems proactively rather than address problems reactively. It emphasizes identifying root causes to prevent recurring problems and encourages continuous improvement. DevOps initiatives encompass various practices, including enhancing the on-call process, documenting run books, prioritizing security in development, adhering to coding best practices, optimizing services, conducting defect triage exercises, and improving reporting. Although DevOps is not a one-size-fits-all solution, it underscores the importance of being transparent, setting goals, and advocating for continuous improvement within the organization. Additionally, DevOps recognizes the need to balance maintaining existing systems with building new ones, ensuring that improvements are made where necessary. Two sources I suggest reading are The Phoenix Project (https://mng.bz/oeld) and the Amazon Web Services (AWS) blog post about DevOps at https://aws.amazon.com/devops/what-is-devops. DevOps practices ensure that systems degrade gracefully under unexpected or unprepared loads.",
+      "expected_notes": "keep two URLs intact; on-call/run book; OE"
+    },
+    {
+      "id": "tech-body-04",
+      "category": "technical-body",
+      "source_page": 18,
+      "english_text": "As you can see, there was a noticeable lack of guidance for someone like me—an engineer seeking to understand what EM entailed and whether it was the right move for my career. Neither was there information on how to transition from an individual contributor (IC; software engineer) to a manager of teams. To my dismay, I discovered that I was the only one in my immediate circle of friends who was considering an EM role, which meant that there were fewer people I could turn to for advice within my online friend network. Consequently, I had to actively expand my network, using platforms such as LinkedIn to connect with individuals who could offer career guidance. My immediate manager also provided valuable support throughout this process. The challenges and anxieties I experienced during my transition from software engineer to EM were the driving force behind my decision to write this book. Within its pages, you will delve into the EM role, learning about the progression from IC to EM, illustrated by some experiences from my journey as well as anecdotes from industry experts.",
+      "expected_notes": "IC = individual contributor; EM; LinkedIn"
+    },
+    {
+      "id": "tech-body-05",
+      "category": "technical-body",
+      "source_page": 45,
+      "english_text": "These metrics offer valuable insights into the state of team services and the codebase. Successful teams actively manage and reduce technical debt while implementing process improvements to enhance their efficiency. Metrics such as the number of lines of code or raw count of user stories closed by a developer can be misleading. The true testament to success lies in the team’s ability to operate smoothly even when the EM is on vacation. Allow me to share an example from my previous team. We noticed a gradual increase in on-call workload—the first line of defense for any problems raised during a designated on-call period. Team members typically rotated and took turns assuming these responsibilities. Upon closer examination, we discovered that our core services deteriorated slowly due to several factors, such as increased technical debt from quick fixes and infrastructure degradation due to missing updates. If left unaddressed, this situation could have had severe consequences for the team in the long run, including reduced developer velocity (as the team was more occupied with resolving problems than delivering new products), decreased team morale, and increased risk of burnout. To tackle this challenge, our team collaborated closely with the site reliability teams to generate ideas and improvements that would enhance the overall health of our services. We prioritized and dedicated a full quarter to working on this endeavor. This exercise was pivotal and ultimately allowed the team to regain its full development capacity. After you examine diverse success metrics for evaluating an EM’s effectiveness, it’s apparent that exemplary companies and teams function with seamless efficiency reminiscent of a finely tuned machine. Managing and leading a team effectively requires recognizing different leadership styles and identifying the ones that align best with the team’s dynamics.",
+      "expected_notes": "technical debt; on-call; SRE; developer velocity"
+    },
+    {
+      "id": "tech-body-06",
+      "category": "technical-body",
+      "source_page": 44,
+      "english_text": "Indeed, you can explore numerous avenues for improving development velocity, but maintaining focus on quality is crucial. Although we’ve discussed key metrics, improving development velocity is challenging and requires a longer observation period for fair assessments. Comparing velocity among team members, teams, and projects is also difficult, and we should prioritize value delivered over velocity. Teams may use story points, but those story points should serve as references for understanding team capacity, task comprehension, and estimation accuracy. Using story points to compare individuals can lead to confusion and unfair assessments when what we really want to know is the overall value delivered by the team. To drive improvement, it’s important to identify high-priority areas where the team is struggling. When improvements are observed, gradually expand focus to other areas. Addressing downtime problems in essential services can significantly affect the team’s overall performance; then you can identify the next challenge and optimize for it.",
+      "expected_notes": "development velocity; story points; downtime"
+    },
+    {
+      "id": "tech-body-07",
+      "category": "technical-body",
+      "source_page": 40,
+      "english_text": "Delegating effectively. Effective delegation for an EM involves understanding team members’ career goals and assigning relevant tasks to propel their progress. First, you must recognize the value of empowering individuals; then you must build trust with your team members while avoiding micromanagement. Alice and Bob, our two senior engineers turned EMs, faced initial challenges in delegating tasks and responsibilities. Alice empowered her tech lead to collaborate with other teams, an act that demonstrated her trust in the tech lead’s abilities. Conversely, Bob’s reluctance to delegate meant that he was the only point of contact with other teams, which confused and frustrated team members and hindered their success.",
+      "expected_notes": "delegation; micromanagement; tech lead"
+    },
+    {
+      "id": "tech-body-08",
+      "category": "technical-body",
+      "source_page": 35,
+      "english_text": "Effective delegation not only boosts morale and builds trust with your engineers, but also provides them opportunities to grow that align with their career aspirations. Simultaneously, it allows you to take on additional responsibilities that contribute to your career advancement. Scaling to manage multiple teams is a crucial consideration that is explored further in chapter 5, which is dedicated to the art of delegation.",
+      "expected_notes": "delegation; career aspirations; chapter 5"
+    },
+    {
+      "id": "long-sent-01",
+      "category": "long-sentence",
+      "source_page": 30,
+      "english_text": "training sessions, along with cross-training between backend and frontend, the team’s productivity increases. With the changes, each developer now accomplishes three tasks a day, resulting in a 50% boost to daily output. Welcome to the world of engineering managers (EMs), the unsung heroes of organizational success! Effective engineering management is crucial for both the success of the company and the growth of the individual engineers on your team.The job is not just about project execution, but also demands coaching, motivating, delegating, hiring, and firing. As an EM, you play the roles of guardian, navigator, and bridge between your team’s brilliant minds and senior leadership’s strategic vision. Despite the challenges, including tough decisions and occasional refusals, you guide your team toward greatness. As an EM, you’re not just overseeing a team; you’re orchestrating a symphony of innovation and collaboration. The job is not about ticking boxes on a managerial checklist, but about creating a thriving ecosystem where everyone leaves work with a sense of accomplishment. Although fundamental management principles apply to the role, this book is tailored to EMs, emphasizing their pivotal role in the success of tech companies. Whether the task is leading a team in a warehouse or navigating a midlevel position in a tech company, the principles outlined here offer valuable guidance on overseeing people, projects, and processes. This book provides insights and strategies to guide software engineers who are considering the EM career path, newly installed EMs, or established EMs who want to improve their skills. With example stories, personal insights, and organizational tools and templates, it will put you into every aspect of the job so you can indeed start thinking like an EM. In this first chapter, we explore the role, looking at the scope of responsibilities, the traits that help you navigate the job, and ways to measure your success.",
+      "expected_notes": "long enumeration; EM titles; ~300 words"
+    },
+    {
+      "id": "long-sent-02",
+      "category": "long-sentence",
+      "source_page": 238,
+      "english_text": "structured framework that enables project planners to define clear goals, identify potential alternatives, and establish criteria for evaluating options. See chapter 9 to learn about establishing a decision-making process. Communication channel—Open communication channels help build trust and ensure that no surprises occur later in the project development life cycle. As EM, your job is to define the communication channels that will be useful for team members to interact and unblock themselves should they hit a roadblock. Chapter 9 covered establishing a communication framework. Now let’s deepdive into the topic. You, as EM, step up to define the communication channels, keeping the cross-functional partners involved in the process. Here are some approaches to facilitate communication: –Face-to-face communication—Although they were more common before the COVID-19 pandemic, face-to-face interactions remain valuable for observing facial expressions and body language, allowing immediate feedback. Schedule significant technical discussions, such as whiteboard sessions, to happen in person and synchronously. –Videoconferencing—Particularly useful during remote work periods, videoconferencing enables synchronous communication for geographically dispersed teams. Encourage the use of cameras during calls to capture visual cues and facial expressions effectively. –Asynchronous communication—For nonurgent matters or during focused coding time, use nonverbal asynchronous communication methods such as email and chat messengers such as Slack or Microsoft Teams. Use tools such as Wiki and Confluence to document technical discussions and store files for future reference. –Escalation—Define a clear escalation process for resolving problems that may arise. This strategy provides clarity to team members about who to contact in case of blockers or challenges. Establish service-level agreements (SLAs) for response times at each escalation level to ensure timely resolution of problems. As an example, after the product is launched, to handle customer tickets, the on-call should respond in two business days; if not, the escalation can move to level 2, where the EM has one business day to respond. Further, if no action is taken, the escalation moves to the Director level to be responded to in one business day. The process looks like this: Person escalating > On-call (Level 1) -> EM (Level 2) -> Director (Level 3) In addition to traditional communication methods, using a problem ticket tracking system like Jira is essential. This platform allows developers, project managers, QA, and others to communicate changes, progress, and status updates efficiently. It’s vital to establish processes for communication and have action plans to address any barriers or concerns that arise.",
+      "expected_notes": "escalation chain On-call->EM->Director; SLA; Jira; Slack/Teams; ~400 words"
+    },
+    {
+      "id": "long-sent-03",
+      "category": "long-sentence",
+      "source_page": 237,
+      "english_text": "expectations. It sets the tone for the project and establishes communication channels and roles. –Grooming—Grooming sessions, also known as backlog refinement, focus on refining the product backlog by reviewing and prioritizing user stories, adding details, and ensuring clarity and feasibility. It helps maintain a wellgroomed backlog, which is crucial for efficient sprint planning and execution. It also helps ensure that the product backlog remains relevant, refined, and aligned with evolving business needs. –Sprint planning—Sprint planning involves a collaborative effort on the development team to define the sprint goal and select user stories or tasks to be completed during the upcoming sprint. It requires estimating effort, prioritizing tasks, and breaking work into manageable chunks. –Sprint retrospective—Sprint retrospective meetings provide an opportunity for the team to reflect on the recently completed sprint, discuss what went well, identify areas for improvement, and plan actionable steps for enhancing future sprints. It promotes continuous improvement and fosters a culture of learning and adaptation. –User-experience (UX) design reviews—UX design reviews involve evaluating UX designs, prototypes, or wireframes to ensure usability, accessibility, and alignment with user needs and business goals. It encourages collaboration among designers, developers, and stakeholders to create intuitive and usercentric solutions. –QA meetings—QA meetings involve coordination among QA engineers, developers, and stakeholders to discuss testing strategies, review test cases, report and prioritize defects, and ensure the overall quality of the software product. It emphasizes the importance of rigorous testing and QA throughout the development life cycle. –Demos—Sprint demos involve showcasing the progress and completed work to stakeholders, including clients and product owners, to gather feedback and validate deliverables. It facilitates transparency, fosters collaboration, and ensures alignment between development efforts and stakeholder expectations. –Scrum of scrums—This coordination mechanism is used in large-scale agile projects to address coordination and communication challenges across multiple scrum teams. Representatives from each team participate in regular meetings to discuss cross-team dependencies, impediments, and goal alignment. Scrum of scrums promotes transparency, collaboration, and alignment among teams, enabling them to work cohesively toward shared project objectives while maintaining agility and flexibility. Decision-making model—The decision-making model plays a pivotal role in the project planning phase, serving as a structured approach for analyzing options, weighing alternatives, and making informed choices that align with project objectives and stakeholder expectations. A decision-making model provides a",
+      "expected_notes": "Scrum artifacts: grooming, sprint planning, retrospective, Scrum of scrums; QA; ~390 words"
+    },
+    {
+      "id": "long-sent-04",
+      "category": "long-sentence",
+      "source_page": 70,
+      "english_text": "Set clear scope and mission. Define a clear scope and mission for the hiring process to give engineers a road map and a sense of how their work adds value to the company. Ensure that engineers see a clear path for their work to prevent frustration and maintain motivation. Use network and recruiters. Use your network and collaborate with a recruiter to find the best engineers for the team. Seek support and learn from others. Seek guidance and support from your manager, mentors, and allies. Learn from their experiences to avoid common pitfalls and accelerate your team-building process. Avoid mass hiring. Resist the temptation to hire a large number of people at the same time. Take gradual steps, regularly assessing the team’s needs to maintain efficiency and work lean. You are transitioning from IC to EM on your current team. Transitioning into an engineering management role within your current team presents its own challenges and opportunities. Build trust gradually. Patiently build trust before officially assuming the role. Address biases and fair treatment. Be mindful of biases from your previous IC role. Treat all team members fairly, avoiding favoritism. Continue learning. Stay informed about unconscious biases. Attend diversity and inclusion workshops. Handle challenges proactively. Be prepared for potential challenges and skepticism. Address concerns openly and honestly. Be open to learning. Recognize this period as a valuable opportunity to learn leadership skills.",
+      "expected_notes": "imperative bullets; IC->EM transition; ~370 words"
+    },
+    {
+      "id": "long-sent-05",
+      "category": "long-sentence",
+      "source_page": 136,
+      "english_text": "Feeling guilty about offloading work to others. EMs may experience guilt when delegating tasks originally planned for themselves, but it’s crucial to understand that delegating tasks empowers others and contributes to their growth. Instead of feeling guilty, EMs should view delegation as a positive step. Furthermore, delegation doesn’t absolve EMs of accountability. Although not all tasks need to be done exclusively by EMs, the managers remain accountable for ensuring that tasks are completed on time and accurately. It’s essential to discern which tasks require the EM’s involvement, particularly in people management, and which can be delegated appropriately. When new tasks arise, delegating them to an engineer can affect team velocity and focus.",
+      "expected_notes": "delegation guilt; accountability; long clauses"
+    },
+    {
+      "id": "short-01",
+      "category": "short",
+      "source_page": 21,
+      "english_text": "First, let’s address the fundamental question of who should read this book. If any of the following categories describes you, you have landed in the appropriate book:",
+      "expected_notes": "very short opener; keep colon"
+    },
+    {
+      "id": "short-02",
+      "category": "short",
+      "source_page": 22,
+      "english_text": "This book contains 15 chapters divided into three parts dealing with the fundamentals of the EM role (people, product, and process):",
+      "expected_notes": "parenthetical people/product/process"
+    },
+    {
+      "id": "short-03",
+      "category": "short",
+      "source_page": 33,
+      "english_text": "Fostering vision. For an EM, fostering a clear vision significantly enhances team productivity. It is your responsibility to impart a clear mission statement to your team by translating the organization-wide strategy and vision. This approach ensures that your team understands its purpose as a cohesive unit.",
+      "expected_notes": "fostering vision; mission statement"
+    },
+    {
+      "id": "short-04",
+      "category": "short",
+      "source_page": 42,
+      "english_text": "These areas are interconnected, and success or failure in one can affect others. Enhancing developer velocity, for example, can influence key business or operational metrics, provided that proper processes are in place. Conversely, persistent failure to affect business metrics can affect team morale. Exploring each area in depth provides comprehensive understanding of success.",
+      "expected_notes": "developer velocity; business metrics"
+    },
+    {
+      "id": "code-01",
+      "category": "code-command",
+      "source_page": 101,
+      "english_text": "3.2.8 Avoiding burnout. Avoiding burnout is crucial, especially in virtual work environments where clear boundaries may be lacking. Burnout can occur due to various factors such as excessive workload, lack of motivation, and personal problems. Here are some strategies to prevent burnout on your team:",
+      "expected_notes": "section number 3.2.8; imperative checklist lead-in"
+    },
+    {
+      "id": "code-02",
+      "category": "code-command",
+      "source_page": 122,
+      "english_text": "4.4.1 Identifying high performance. Identifying high performers is crucial, as they consistently exceed expectations, boost team velocity, and inspire others. They are sought after in the job market and serve as go-to resources within the team. Recognizing their traits also helps set a benchmark for hiring top talent. Let us explore these traits further:",
+      "expected_notes": "section number 4.4.1; imperative lead-in"
+    },
+    {
+      "id": "code-03",
+      "category": "code-command",
+      "source_page": 196,
+      "english_text": "Engineering team cost—This cost involves interview loops, which are calls with potential candidates. Let’s assume that each engineer makes roughly $100,000 and that 4 engineer loops are done for 10 potential candidates before the prime candidate is found. Roughly, each engineer spent 2 hours per candidate, so 4 engineers x 10 candidates x 2 hours = 80 hours = 2 weeks, or $8,300 / 2 = $4,150. Total—The costs in this scenario add up to $1,250 + $4,150 = $5,400. Onboarding cost—includes training cost: suppose that we used an internal/external trainer for 2 days who charged $5,000. Ramp-up period—the engineer was given 60 days to ramp up to the new technology stack and the company culture, at a cost of $100,000 x (2/12) = $16,600. Total—$5,000 + $16,600 = $21,600. Miscellaneous costs—job ads, tools to filter resumes = $3,000. Grand total—all the above result in a total of $30,000 in backfill cost.",
+      "expected_notes": "keep dollar figures and arithmetic: $100,000, $8,300/2, $5,400, $21,600, $30,000"
+    },
+    {
+      "id": "code-04",
+      "category": "code-command",
+      "source_page": 297,
+      "english_text": "1. How will my team or organization benefit from DevOps? 2. What are the current pain points on my team(s) that focusing on DevOps might address?",
+      "expected_notes": "numbered question list 1./2."
+    },
+    {
+      "id": "heading-h1",
+      "category": "heading",
+      "source_page": 29,
+      "english_text": "Exploring the engineering manager role",
+      "expected_notes": "chapter title; keep casing"
+    },
+    {
+      "id": "heading-h2",
+      "category": "heading",
+      "source_page": 30,
+      "english_text": "1.1 Demystifying the EM role",
+      "expected_notes": "section number 1.1"
+    },
+    {
+      "id": "heading-h3",
+      "category": "heading",
+      "source_page": 40,
+      "english_text": "Delegating effectively",
+      "expected_notes": "subsection title"
+    },
+    {
+      "id": "heading-h4",
+      "category": "heading",
+      "source_page": 33,
+      "english_text": "Fostering vision",
+      "expected_notes": "sub-subsection title"
+    },
+    {
+      "id": "list-01",
+      "category": "list-item",
+      "source_page": 18,
+      "english_text": "The Manager’s Path: A Guide for Tech Leaders Navigating Growth and Change, by Camille Fournier",
+      "expected_notes": "book title; author Camille Fournier"
+    },
+    {
+      "id": "list-02",
+      "category": "list-item",
+      "source_page": 18,
+      "english_text": "The Mythical Man-Month: Essays on Software Engineering, by Frederick P. Brooks Jr.",
+      "expected_notes": "book title; author Frederick P. Brooks Jr."
+    },
+    {
+      "id": "list-03",
+      "category": "list-item",
+      "source_page": 18,
+      "english_text": "Software Engineering at Google: Lessons Learned from Programming Over Time",
+      "expected_notes": "book title; keep \"Google\""
+    },
+    {
+      "id": "list-04",
+      "category": "list-item",
+      "source_page": 18,
+      "english_text": "Peopleware: Productive Projects and Teams, by Tom DeMarco and Timothy Lister",
+      "expected_notes": "book title; authors DeMarco and Lister"
+    },
+    {
+      "id": "mgmt-business-01",
+      "category": "management-business",
+      "source_page": 31,
+      "english_text": "This friction can compromise overall business health. In the dynamic startup world, EMs wear multiple hats, tackling technical problem-solving, team-building, and project management. They navigate challenges such as limited resources, tight deadlines, and the constant need for innovation, emphasizing hands-on problem-solving and effective leadership in uncertain environments. By contrast, EMs in large corporations face challenges with complex structures, extensive hierarchies, and established processes. The trick here is navigating bureaucracy while fostering innovation and maintaining team efficiency. EMs in large corporations must possess a strategic mindset that aligns technical efforts with business goals and acts as a conduit between technical teams and senior management, emphasizing communication and collaboration. Regardless of the setting, the role requires a delicate balance of technical prowess and managerial finesse. Although technical expertise is crucial for guiding teams and making informed decisions, managerial skills are equally vital for effective communication, conflict resolution, and overall project execution. In day-to-day operations, EMs seamlessly transition between technical problem-solving and managerial duties such as",
+      "expected_notes": "startup vs large corp; hierarchy; bureaucracy"
+    },
+    {
+      "id": "mgmt-business-02",
+      "category": "management-business",
+      "source_page": 47,
+      "english_text": "Meet Charlie, an experienced engineering leader with a delegative leadership style. Charlie believes in delegation to manage multiple teams across various geographical areas efficiently. He empowers individuals by giving them decision-making authority and minimal supervision, adopting a hands-off approach that focuses on what needs to be done rather than how. In a recent decision-making scenario, he delegated the load-testing strategy for backend services to his team, emphasizing the importance of outcomes over micromanagement. Identifying with Charlie’s leadership style means that you",
+      "expected_notes": "delegative leadership; load-testing; hands-off"
+    },
+    {
+      "id": "mgmt-business-03",
+      "category": "management-business",
+      "source_page": 50,
+      "english_text": "Choosing a leadership style is highly situational, requiring a unique evaluation of each circumstance. A leader may opt for a particular style or combine several to form a personalized hybrid approach, all while maintaining a positive attitude and a growth mindset that embraces learning opportunities. When you’re faced with a deadline to make a decision without the need for consensus, a combination of autocratic and delegation approaches might be effective. Tough choices, such as downsizing due to market conditions, may demand adapting styles, possibly blending transformational and transactional approaches. Flexibility is crucial, even when it means unlearning and relearning when an initial leadership style proves to be ineffective. Consider a scenario in which a focus on reducing technical debt inadvertently affects current operations. Swift adaptation, such as organizing a hackathon for revenue growth, illustrates the need to discard the initial plan and embrace a more democratic style based on current circumstances. In essence, there is no one best leadership style. Leaders must understand the fundamentals, adapt to changing situations, and strive to be effective by responding uniquely to new and unconquered challenges in the engineering field.",
+      "expected_notes": "autocratic/transformational/transactional; hackathon"
+    },
+    {
+      "id": "mgmt-business-04",
+      "category": "management-business",
+      "source_page": 24,
+      "english_text": "Akanksha Gupta is an experienced EM who has worked at several big tech firms, including Amazon-AWS, Audible, Microsoft, and Robinhood, where she led full stack teams. She holds a master’s degree in computer science from Columbia University in New York. She served as a jury member for several esteemed awards and is an active mentor in the GrowthMentor, Plato, and First Round Fast Track mentorship programs. She has spoken at multiple global tech conferences and is a big advocate for women in technology. To find out more about her, find her on LinkedIn (https://www.linkedin.com/in/akankshaguptamgr).",
+      "expected_notes": "proper nouns: Amazon-AWS, Audible, Microsoft, Robinhood, Columbia; LinkedIn URL"
+    },
+    {
+      "id": "acronym-01",
+      "category": "acronym-dense",
+      "source_page": 43,
+      "english_text": "Measuring the success of an EM involves carefully choosing the metrics based on the work situation and company. Your team’s development velocity (https://mng.bz/y8Z7) can help you measure success. DORA metrics (https://codeclimate.com/blog/dora-metrics), proposed by the DevOps Research and Assessment team, is another way to measure the success of your engineering team and your own success. It includes four key metrics:",
+      "expected_notes": "DORA metrics; keep two URLs; DevOps Research and Assessment"
+    },
+    {
+      "id": "acronym-02",
+      "category": "acronym-dense",
+      "source_page": 48,
+      "english_text": "Transformational leaders, often associated with roles such as enterprise architect and DevOps/DevSecOps team, play a crucial role in driving growth and change within a company. Carefully balancing this leadership style with other styles is essential, however, because focusing solely on the future without addressing present needs can lead to unintended consequences. Proposing a complete rearchitecture of a core infrastructure piece, although beneficial for the future, might strain resources and time needed for ongoing operational excellence.",
+      "expected_notes": "DevOps/DevSecOps; enterprise architect; rearchitecture"
+    },
+    {
+      "id": "acronym-03",
+      "category": "acronym-dense",
+      "source_page": 62,
+      "english_text": "David, a senior engineer and a team tech lead with more than five years at the company, expressed interest in transitioning to an EM role. In our one-on-one discussions, I discovered his inclination toward EM responsibilities, particularly in mentoring and coaching engineers. To assess his suitability, I evaluated his skills and identified areas for improvement. Although David demonstrated leadership in cross-team projects and operational excellence initiatives, his communication with nontechnical stakeholders sometimes involved technical jargon. I addressed this concern, pairing him with a marketing-manager mentor and recommending relevant LinkedIn courses to enhance his communication skills. To give David trial experience in the EM role, we created a 90-day plan in which he retained his current role while taking on expanded EM responsibilities. Managing critical projects and working closely with cross-functional partners, he demonstrated leadership. He also conducted effective one-on-one sessions with his peers, which were not easy for him in the beginning. David adeptly navigated the challenge by approaching these sessions with an open mind. He provided opportunities for other engineers to voice their opinions and ensured that they felt heard. He offered valuable coaching and recommended learning resources to his team members, fostering trust and exceeding expectations during his transition to the EM role. This section addressed prevalent misconceptions in the tech industry and provided insights on how to navigate them. Section 2.3 delves into the key aspects of a successful transition from IC to EM, highlighting the significance of intentions, motivations, and a learning mindset.",
+      "expected_notes": "EM, IC, tech lead, one-on-one, 90-day plan; keep proper noun David"
+    },
+    {
+      "id": "acronym-04",
+      "category": "acronym-dense",
+      "source_page": 65,
+      "english_text": "Find mentors. Securing mentors during your transition from IC to EM is crucial for success. Seek mentors inside and outside your company who have experience in this transition. Use mentorship platforms such as Plato (https://www.platohq.com), GrowthMentor (https://www.growthmentor.com), and Fast Track (https://fasttrack.firstround.com), or attend local meetups and networking sessions. Use LinkedIn to reach out for mentorship, aiming to find someone who is invested in your career growth.",
+      "expected_notes": "IC->EM; keep three URLs (Plato, GrowthMentor, Fast Track)"
+    },
+    {
+      "id": "data-01",
+      "category": "data-numeric",
+      "source_page": 156,
+      "english_text": "360-degree recognition, which integrates top-down and peer acknowledgment, offers employees a comprehensive understanding of how their work is valued. It enables employees to grasp the effect of their work through feedback from peers and crossteam partners within the company. Gathering feedback from various sources provides valuable perspectives. For 360-degree feedback to be effective, an open and honest environment, free of repercussions, is essential so that staff members feel free to provide their true opinions. In a supportive atmosphere, where feedback is anonymous and geared toward improvement and positive recognition, 360-degree feedback is highly beneficial. Additionally, 360-degree feedback serves to uncover problems that are not immediately apparent. In one of my past jobs, despite a developer’s successful project deliveries, 360-degree feedback revealed communication challenges highlighted by two cross-functional partners. This feedback signaled a need to delve deeper, understand the root cause and effect, and provide actionable feedback to the engineer.",
+      "expected_notes": "360-degree feedback; top-down/peer; anonymity"
+    },
+    {
+      "id": "data-02",
+      "category": "data-numeric",
+      "source_page": 324,
+      "english_text": "The Pomodoro Technique Developed in late 1980 by Francesco Cirillo, a university student who was struggling with his own time management, the Pomodoro Technique (https://www.pomodoro technique.com) relies on breaking your work time into 30-minute chunks: you spend 25 minutes working on something with complete focus and then take a 5-minute break. After four such 30-minute sessions, you take a break of 15 minutes. The following figure illustrates the technique.",
+      "expected_notes": "keep numbers: 1980, 30-minute, 25 minutes, 5-minute break, 15 minutes; keep URL"
+    },
+    {
+      "id": "data-03",
+      "category": "data-numeric",
+      "source_page": 43,
+      "english_text": "The success of an EM can be measured through business metrics that reflect the value the team delivers to the business or customers. Metrics should be realistic and aligned with the company’s vision, goals, and strategic direction. Common tech-company metrics include customer satisfaction (https://mng.bz/X1ql), retention rate, and customer feedback. Success is determined by meeting or surpassing metrics set during project initiation. Shipping a new product that increases customer satisfaction by 20% and reduces escalations by 30%, for example, is considered to be successful when aligned with established metrics. For an EM, collaboration during project initiation helps define success metrics, and meeting set goals indicates project success. Advocate for establishing success metrics if they are not already in place. Although optimizing for business metrics may appear straightforward on the surface, complexities arise in scenarios involving multiple stakeholders and vendors, as well as accurately pinpointing the root causes of changes in metrics.A 30% reduction in escalations, for example, may result from various factors, and you won’t be able to identify them without meticulous analysis. Acknowledging responsibility in case of negative outcomes is also essential, as is avoiding shifting blame to other teams. As you can see, optimizing for business metrics is valuable but can become complex in certain situations.",
+      "expected_notes": "keep percentages 20% and 30%; business metrics; stakeholders/vendors"
+    }
+  ]
+}

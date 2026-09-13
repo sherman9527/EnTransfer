@@ -1,0 +1,221 @@
+{
+  "source": "Manning.Think.Like.a.Software.Engineering.Manager.2024.6.pdf",
+  "totalPages": 353,
+  "processedPages": 5,
+  "pages": [
+    {
+      "page": 1,
+      "width": 531,
+      "height": 666,
+      "paragraphCount": 2,
+      "titleCount": 1,
+      "codeCount": 0,
+      "bodyCount": 1,
+      "paragraphs": [
+        {
+          "fontSize": 22,
+          "fontName": "g_d0_f2",
+          "x0": 50.856,
+          "x1": 157.64840000000004,
+          "y0": 182.404,
+          "y1": 204.404,
+          "text": "Akanksha Gupta",
+          "type": "title"
+        },
+        {
+          "fontSize": 13,
+          "fontName": "g_d0_f1",
+          "x0": 90.4566,
+          "x1": 155.65160000000003,
+          "y0": 21.218000000000004,
+          "y1": 34.218,
+          "text": "M A N N I N G",
+          "type": "body"
+        }
+      ]
+    },
+    {
+      "page": 2,
+      "width": 531,
+      "height": 666,
+      "paragraphCount": 10,
+      "titleCount": 0,
+      "codeCount": 0,
+      "bodyCount": 10,
+      "paragraphs": [
+        {
+          "fontSize": 9.96,
+          "fontName": "g_d0_f3",
+          "x0": 58.08,
+          "x1": 459.11342400000103,
+          "y0": 494.40000000000003,
+          "y1": 504.36,
+          "text": "Streamline transition with a comprehensive offboarding checklist for departing employees",
+          "type": "body"
+        },
+        {
+          "fontSize": 11.051,
+          "fontName": "g_d0_f4",
+          "x0": 97.933,
+          "x1": 432.9272085,
+          "y0": 466.06100000000004,
+          "y1": 477.112,
+          "text": "Action planStatus",
+          "type": "body"
+        },
+        {
+          "fontSize": 9.67,
+          "fontName": "g_d0_f5",
+          "x0": 97.931,
+          "x1": 384.95594000000034,
+          "y0": 438.722,
+          "y1": 459.995,
+          "text": "Provide robust documentation on the projects being worked on and their state/outstanding tasks.",
+          "type": "body"
+        },
+        {
+          "fontSize": 9.67,
+          "fontName": "g_d0_f5",
+          "x0": 97.931,
+          "x1": 379.0282300000003,
+          "y0": 394.173,
+          "y1": 427.05,
+          "text": "Document the important system designs and the processes. If the documentation already exists, make sure it's useful, relevant, and up to date.",
+          "type": "body"
+        },
+        {
+          "fontSize": 9.67,
+          "fontName": "g_d0_f5",
+          "x0": 97.931,
+          "x1": 381.71649000000025,
+          "y0": 347.954,
+          "y1": 380.831,
+          "text": "Hold technical talks or lunch-and-learn sessions that are recorded, and cover the essential details of the systems and projects they’ve worked on in their time at the company.",
+          "type": "body"
+        },
+        {
+          "fontSize": 9.67,
+          "fontName": "g_d0_f5",
+          "x0": 97.931,
+          "x1": 366.1091100000002,
+          "y0": 288.054,
+          "y1": 332.534,
+          "text": "Do pair programming sessions with team members for critical components as needed, especially to share troubleshooting mechanisms for common production issues, ensuring that they are well documented.",
+          "type": "body"
+        },
+        {
+          "fontSize": 9.67,
+          "fontName": "g_d0_f5",
+          "x0": 97.931,
+          "x1": 374.1448800000003,
+          "y0": 251.91300000000004,
+          "y1": 273.186,
+          "text": "Review any access permissions, and revoke all access to critical systems, infrastructure, and so on for the departing employee.",
+          "type": "body"
+        },
+        {
+          "fontSize": 9.67,
+          "fontName": "g_d0_f5",
+          "x0": 97.931,
+          "x1": 354.8145500000002,
+          "y0": 217.048,
+          "y1": 238.321,
+          "text": "Retrieve important contacts for cross-functional partners per project/points of contact.",
+          "type": "body"
+        },
+        {
+          "fontSize": 9.67,
+          "fontName": "g_d0_f5",
+          "x0": 97.932,
+          "x1": 243.56220000000002,
+          "y0": 192.625,
+          "y1": 202.295,
+          "text": "Do a manager-level exit interview.",
+          "type": "body"
+        },
+        {
+          "fontSize": 9.67,
+          "fontName": "g_d0_f5",
+          "x0": 97.932,
+          "x1": 345.1745600000002,
+          "y0": 168.86200000000002,
+          "y1": 178.532,
+          "text": "Provide a thank-you note for the employee from the team.",
+          "type": "body"
+        }
+      ]
+    },
+    {
+      "page": 3,
+      "width": 531,
+      "height": 666,
+      "paragraphCount": 1,
+      "titleCount": 0,
+      "codeCount": 0,
+      "bodyCount": 1,
+      "paragraphs": [
+        {
+          "fontSize": 13.98,
+          "fontName": "g_d0_f6",
+          "x0": 148.32,
+          "x1": 391.8585900000003,
+          "y0": 579.72,
+          "y1": 593.7,
+          "text": "Think Like a Software Engineering Manager",
+          "type": "body"
+        }
+      ]
+    },
+    {
+      "page": 4,
+      "width": 531,
+      "height": 666,
+      "paragraphCount": 0,
+      "titleCount": 0,
+      "codeCount": 0,
+      "bodyCount": 0,
+      "paragraphs": []
+    },
+    {
+      "page": 5,
+      "width": 531,
+      "height": 666,
+      "paragraphCount": 3,
+      "titleCount": 0,
+      "codeCount": 0,
+      "bodyCount": 3,
+      "paragraphs": [
+        {
+          "fontSize": 33.96,
+          "fontName": "g_d0_f6",
+          "x0": 180.42,
+          "x1": 474.43191199999984,
+          "y0": 333.35900000000004,
+          "y1": 403.32,
+          "text": "Think Like a Software Engineering Manager",
+          "type": "body"
+        },
+        {
+          "fontSize": 13.98,
+          "fontName": "g_d0_f7",
+          "x0": 376.8,
+          "x1": 474.13182,
+          "y0": 272.7,
+          "y1": 286.68,
+          "text": "AKANKSHAGUPTA",
+          "type": "body"
+        },
+        {
+          "fontSize": 12,
+          "fontName": "g_d0_f8",
+          "x0": 400.68,
+          "x1": 472.3199999999999,
+          "y0": 74.7,
+          "y1": 102,
+          "text": "M A N N I N G SHELTERISLAND",
+          "type": "body"
+        }
+      ]
+    }
+  ]
+}
