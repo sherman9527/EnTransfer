@@ -6,13 +6,32 @@ import react from '@vitejs/plugin-react'
 // Local cross-process types live in shared/ and are imported (type-only) by both tiers.
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    // No externalizeDepsPlugin: bundle all pure-JS deps (pdfjs-dist, pdf-lib,
+    // fontkit) into the output to avoid runtime require() of ESM modules.
+    // node-llama-cpp is loaded via dynamic import() and stays external.
+    resolve: {
+      alias: {
+        // pdfjs-dist optionally requires `canvas` for pixel rendering (unused).
+        // Stub it to avoid a top-level require() of an uninstalled native module.
+        canvas: resolve(__dirname, 'electron/canvas-stub.js')
+      }
+    },
     build: {
       sourcemap: false,
       lib: {
         entry: resolve(__dirname, 'electron/main.ts')
       },
       rollupOptions: {
+        // Bundle pure-JS deps (pdfjs-dist, pdf-lib, fontkit) into output to
+        // avoid runtime require() of ESM modules. Externalize node-llama-cpp
+        // (ESM-only + native .node bindings, loaded via dynamic import()) and
+        // electron/node builtins.
+        external: [
+          /^node:/,
+          'electron',
+          'node-llama-cpp',
+          /^@node-llama-cpp\//
+        ],
         output: {
           entryFileNames: 'index.js'
         }

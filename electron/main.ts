@@ -92,6 +92,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#1a1a2e',
+    icon: join(app.getAppPath(), 'assets/icon.png'),
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
