@@ -1,7 +1,7 @@
 {
     "name":  "entransfer",
     "version":  "0.1.0",
-    "description":  "EnTransfer 閳?local PDF translation \u0026 typesetting desktop app",
+    "description":  "EnTransfer 闁?local PDF translation \u0026 typesetting desktop app",
     "private":  true,
     "author":  "EnTransfer",
     "license":  "MIT",
@@ -13,7 +13,9 @@
                     "typecheck":  "tsc --noEmit -p tsconfig.json \u0026\u0026 tsc --noEmit -p tsconfig.node.json",
                     "pack":  "electron-vite build \u0026\u0026 electron-builder --dir",
                     "dist":  "electron-vite build \u0026\u0026 electron-builder --win",
-                    "postbuild":  "node scripts/copy-pdf-worker.js"
+                    "postbuild":  "node scripts/copy-pdf-worker.js",
+                    "verify":  "node scripts/verify-build.js",
+                    "verify:asar":  "node scripts/verify-build.js --asar"
                 },
     "dependencies":  {
                          "@pdf-lib/fontkit":  "^1.1.1",
