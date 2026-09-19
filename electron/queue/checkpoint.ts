@@ -59,6 +59,7 @@ export interface TranslationUnitRecord {
 const CHECKPOINT_FILE = 'checkpoint.json'
 const TRANSLATION_FILE = 'translation.jsonl'
 const STATE_FILE = 'state.json'
+const CAPTURE_META_FILE = 'capture.json'
 
 // ---------------------------------------------------------------------------
 // CheckpointStore
@@ -185,6 +186,38 @@ export class CheckpointStore {
       return JSON.parse(raw) as Record<string, unknown>
     } catch {
       return null
+    }
+  }
+
+  // ----- capture shape meta (resume safety across extraction upgrades) -----
+
+  /** Stamp which capture pipeline produced this job's block ids. */
+  async writeCaptureMeta(jobId: string, meta: { captureVersion: number }): Promise<void> {
+    await this.ensureDir(jobId)
+    await this.atomicWrite(join(this.getJobDir(jobId), CAPTURE_META_FILE), JSON.stringify(meta))
+  }
+
+  /** Read the capture meta; null for pre-meta jobs. */
+  async readCaptureMeta(jobId: string): Promise<{ captureVersion?: number } | null> {
+    try {
+      const raw = await fsp.readFile(join(this.getJobDir(jobId), CAPTURE_META_FILE), 'utf8')
+      const parsed = JSON.parse(raw) as { captureVersion?: number }
+      return parsed && typeof parsed === 'object' ? parsed : null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Move an old-shape translation.jsonl aside (atomically replacing any prior
+   * .stale) so new-shape unit ids can never interleave with stale ones.
+   */
+  async archiveTranslations(jobId: string): Promise<void> {
+    const dir = this.getJobDir(jobId)
+    try {
+      await fsp.rename(join(dir, TRANSLATION_FILE), join(dir, TRANSLATION_FILE + '.stale'))
+    } catch {
+      /* nothing to archive */
     }
   }
 

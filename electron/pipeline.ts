@@ -24,7 +24,7 @@ import type { TranslationJob } from '../shared/types'
 import type { TranslationPipeline } from './queue/manager'
 import { CheckpointStore } from './queue/checkpoint.ts'
 import type { CheckpointData } from './queue/checkpoint.ts'
-import { captureFlow, type ContentBlock } from './pdf/capture/flow'
+import { captureFlow, CAPTURE_VERSION, type ContentBlock } from './pdf/capture/flow'
 import { typesetFlow } from './pdf/typeset/flow'
 import { blocksToHtml } from './pdf/typeset/htmlFlow'
 import { printHtmlToPdf } from './pdf/typeset/chromiumPrint'
@@ -195,8 +195,18 @@ export function createPipeline(
       // ==================================================================
       job.status = 'translating'
 
-      // Resume: load every task already finalized on disk and skip.
-      const recovered = await checkpoint.loadTranslations(job.id)
+      // Resume: load every task already finalized on disk and skip — but ONLY
+      // when the capture shape matches: unit ids are positional (b{i}), so an
+      // extraction upgrade between runs would otherwise misassign old text.
+      const priorMeta = await checkpoint.readCaptureMeta(job.id)
+      await checkpoint.writeCaptureMeta(job.id, { captureVersion: CAPTURE_VERSION })
+      const shapeOk = priorMeta?.captureVersion === CAPTURE_VERSION
+      let recovered = await checkpoint.loadTranslations(job.id)
+      if (!shapeOk && recovered.size > 0) {
+        console.log(`[pipeline] capture v${priorMeta?.captureVersion ?? '?'} -> v${CAPTURE_VERSION}: ignoring ${recovered.size} stale unit checkpoints (translation cache still applies)`)
+        await checkpoint.archiveTranslations(job.id)
+        recovered = new Map()
+      }
       let translatedCount = recovered.size
       let currentPage = 0
       for (const task of tasks) {

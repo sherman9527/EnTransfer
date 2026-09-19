@@ -81,6 +81,14 @@ export interface FlowCaptureResult {
   imageCount: number
 }
 
+/**
+ * Bump whenever the block stream changes shape (merge rules, classification).
+ * The pipeline stamps it into the job checkpoint and refuses to reuse
+ * id-keyed translations from a differently-shaped capture — block ids are
+ * positional, so a shifted stream would silently misassign text.
+ */
+export const CAPTURE_VERSION = 2
+
 // ---------------------------------------------------------------------------
 // Internal types
 // ---------------------------------------------------------------------------
@@ -1101,11 +1109,13 @@ export async function captureFlow(
   }
   console.log(`[capture/flow] extracted ${imageCount} images from ${max} pages`)
 
-  // Step 3.5: detect tables from RawLines (>=3 column cells, consecutive rows).
+  // Step 3.5: drop repeated running heads/feet, then detect tables from
+  // RawLines (>=3 column cells, consecutive rows).
   // Table lines are pulled out of the prose stream and emitted as TableBlocks.
-  const { tables, skip: tableLines } = detectTables(allLines)
+  const bodyLines = dropRepeatedEdgeText(allLines, max)
+  const { tables, skip: tableLines } = detectTables(bodyLines)
   console.log(`[capture/flow] detected ${tables.length} tables`)
-  const proseLines = allLines.filter((l) => !tableLines.has(l))
+  const proseLines = bodyLines.filter((l) => !tableLines.has(l))
   const tableEntries = tables.map((t) => ({
     block: {
       type: 'table',
@@ -1295,7 +1305,56 @@ export async function captureFlow(
     blockEntries.splice(insertIdx, 0, t)
   }
 
-  const blocks = blockEntries.map((e) => e.block)
+/**
+ * Running heads/feet that escape the per-page band filters: identical
+ * normalized text sitting in the top/bottom 10% of >=40% of pages is page
+ * furniture, not content (Qt-style repeated-edge detection).
+ */
+function dropRepeatedEdgeText(lines: RawLine[], pageCount: number): RawLine[] {
+  if (pageCount < 8) return lines
+  const norm = (t: string): string => t.toLowerCase().replace(/\s+/g, ' ').trim()
+  const pagesByText = new Map<string, Set<number>>()
+  for (const l of lines) {
+    const t = norm(l.text)
+    if (!t || t.length > 80) continue
+    const edge = l.y >= l.pageHeight * 0.90 || l.y <= l.pageHeight * 0.10
+    if (!edge) continue
+    if (!pagesByText.has(t)) pagesByText.set(t, new Set())
+    pagesByText.get(t)!.add(l.page)
+  }
+  const thr = Math.max(4, Math.floor(pageCount * 0.4))
+  const drop = new Set<string>()
+  for (const [t, pages] of pagesByText) if (pages.size >= thr) drop.add(t)
+  if (drop.size === 0) return lines
+  console.log(`[capture/flow] dropped ${drop.size} repeated running head/foot texts`)
+  return lines.filter((l) => !drop.has(norm(l.text)))
+}
+
+/**
+ * Re-join paragraphs that a hard line-break split mid-sentence: previous block
+ * ends WITHOUT terminal punctuation and the next starts lowercase/digit/quote.
+ * Chained fragments collapse into one block. Measured (E1): ~8.2% of paragraphs
+ * started mid-sentence before this rule existed.
+ */
+function mergeSplitParagraphs(entries: BlockEntry[]): BlockEntry[] {
+  const noTerminal = (s: string): boolean => /[a-z0-9,;:)\]}]$/i.test(s.trim()) && !/[.!?…]$/.test(s.trim())
+  const continuation = (s: string): boolean => /^[a-z0-9("'“(\[]/.test(s.trim())
+  const out: BlockEntry[] = []
+  for (const e of entries) {
+    const prev = out[out.length - 1]
+    const pt = prev?.block.type === 'paragraph' ? (prev.block.text ?? '') : null
+    const et = e.block.type === 'paragraph' ? (e.block.text ?? '') : null
+    if (prev && pt !== null && et !== null && prev.page === e.page && noTerminal(pt) && continuation(et) && pt.length + et.length < 4000) {
+      prev.block.text = `${pt.trim()} ${et.trim()}`
+      continue
+    }
+    out.push(e)
+  }
+  return out
+}
+
+  const mergedEntries = mergeSplitParagraphs(blockEntries)
+  const blocks = mergedEntries.map((e) => e.block)
   return { blocks, pageCount: max, imageCount }
 }
 
