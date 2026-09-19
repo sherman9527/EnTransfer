@@ -360,6 +360,14 @@ export class LlamaCppEngine {
     }
   }
 
+  /** True when a mid-generation failure (Vulkan device lost, driver crash,
+   *  VRAM OOM) marks this engine unfit; EngineManager then rebuilds it —
+   * sticky — on CPU so the running job can continue. */
+  private sick = false
+  get isSick(): boolean {
+    return this.sick
+  }
+
   private async translateOne(
     text: string,
     options?: TranslateOpts,
@@ -378,17 +386,26 @@ export class LlamaCppEngine {
     // implicit contextShift (oldest tokens erased) and the model "forgets" the
     // instruction mid-paragraph. Reserve 16 cells for the chat-template tail.
     const maxTokens = Math.max(64, Math.min(MAX_TOKENS, this.contextSize - promptTokens - 16))
-    const result = await session.promptWithMeta(prompt, {
-      maxTokens,
-      temperature: options?.temperature ?? this.temperature,
-      topK: this.topK,
-      topP: this.topP,
-      signal: options?.signal,
-      stopOnAbortSignal: true,
-      onTextChunk: () => {
-        if (firstTokenAt === null) firstTokenAt = Date.now()
-      }
-    })
+    let result: Awaited<ReturnType<LlamaChatSession['promptWithMeta']>>
+    try {
+      result = await session.promptWithMeta(prompt, {
+        maxTokens,
+        temperature: options?.temperature ?? this.temperature,
+        topK: this.topK,
+        topP: this.topP,
+        signal: options?.signal,
+        stopOnAbortSignal: true,
+        onTextChunk: () => {
+          if (firstTokenAt === null) firstTokenAt = Date.now()
+        }
+      })
+    } catch (err) {
+      // An abort is user intent; anything else (device lost, driver crash,
+      // VRAM OOM) means this runtime can no longer be trusted → let the
+      // manager rebuild it on CPU so the job can continue.
+      if (!options?.signal?.aborted) this.sick = true
+      throw err
+    }
     const timeMs = Date.now() - t0
     const tokens = model.tokenize(result.responseText, false).length
     return {

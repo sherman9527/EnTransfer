@@ -262,6 +262,20 @@ export function createPipeline(
           throw new Error(`翻译质量熔断：已处理 ${translatedCount} 单元，回退 ${fallbacks.length}（>30%），中止任务`)
         }
       }
+      // Runtime GPU→CPU failover (user requirement): a mid-generation engine
+      // failure reloads the engine (EngineManager rebuilds it on CPU when the
+      // old one reported sick) and retries the unit once. A second failure
+      // still fails the job — no silent infinite retry.
+      const translateUnit = async (text: string): Promise<TranslateAttempt> => {
+        try {
+          return await translateText(engine, text, signal, cache, cacheStats)
+        } catch (err) {
+          if (signal.aborted) throw err
+          console.warn(`[pipeline] engine failure (${(err as Error).message}); reloading engine (CPU failover if hardware-sick) and retrying unit`)
+          engine = await modelManager.getEngine()
+          return await translateText(engine, text, signal, cache, cacheStats)
+        }
+      }
 
       const saveProgress = async (): Promise<void> => {
         await checkpoint.save(job.id, {
@@ -316,7 +330,7 @@ export function createPipeline(
           const joinedSource = numberJoin(batch.map((t) => t.sourceText))
           let res: TranslateAttempt
           try {
-            res = await translateText(engine, joinedSource, signal, cache, cacheStats)
+            res = await translateUnit(joinedSource)
           } catch (err) {
             if (signal.aborted) { await saveProgress(); return }
             throw err
@@ -329,7 +343,7 @@ export function createPipeline(
             batchFalls++
             for (const t of batch) {
               if (signal.aborted) { await saveProgress(); return }
-              const one = await translateText(engine, t.sourceText, signal, cache, cacheStats)
+              const one = await translateUnit(t.sourceText)
               noteFallback(t, one)
               writeBack(blocks, t, one.text)
               await checkpoint.appendTranslation(job.id, t.id, one.text)
@@ -354,7 +368,7 @@ export function createPipeline(
           // ---- Single translate (long paragraph) -------------------------
           let res: TranslateAttempt
           try {
-            res = await translateText(engine, task.sourceText, signal, cache, cacheStats)
+            res = await translateUnit(task.sourceText)
           } catch (err) {
             if (signal.aborted) { await saveProgress(); return }
             throw err

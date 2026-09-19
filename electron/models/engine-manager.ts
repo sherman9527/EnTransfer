@@ -24,14 +24,24 @@ export interface InferenceSettings {
 export class EngineManager {
   private engine: LlamaCppEngine | null = null
   private currentKey: string | null = null
+  /** Set once an engine reports a mid-run hardware failure; sticky for the
+   *  session so we never hand a crashed GPU runtime a second chance. */
+  private forcedCpu = false
 
-  /**
-   * Get (loading if needed) the engine for `modelId`. The returned engine is
+  /** Get (loading if needed) the engine for `modelId`. The returned engine is
    * already loaded and warm. Reloads automatically when `settings` change so
    * the user can switch device / thread policy without restarting.
-   */
+   * When the previous engine died mid-generation (isSick), it is disposed and
+   * rebuilt on CPU regardless of the requested device. */
   async getEngine(modelId: string, settings: InferenceSettings = {}): Promise<TranslationEngine> {
-    const device: DevicePreference = settings.device ?? 'auto'
+    if (this.engine?.isSick) {
+      console.warn('[engine-manager] engine reported hardware failure; rebuilding on CPU for the rest of the session')
+      this.forcedCpu = true
+      await this.unload()
+      this.currentKey = null
+    }
+    let device: DevicePreference = settings.device ?? 'auto'
+    if (this.forcedCpu) device = 'cpu'
     const threadsMode = settings.threadsMode ?? 'auto'
     const manualThreads = settings.threadsMode === 'manual' ? settings.manualThreads ?? 0 : 0
     const key = `${modelId}|${device}|${threadsMode}|${manualThreads}`
