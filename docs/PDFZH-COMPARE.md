@@ -64,6 +64,25 @@ pdfzh 的**架构性选择**（Typst、PyMuPDF、外部 llama-server 进程、GB
   0.209s（含加载），figure 框 `[336,49,475,417]` 与 Python POC `[336.2,50.4,476.3,413.1]` 吻合。main 是 Node，行为=纯 node，无 wasm/线程/模块问题。
 - **集成架构（定）**：页面像素 = 复用隐藏 Chromium（pdf.js canvas→PNG dataURL，POC 里 CP2 已证 pdf.js 在渲染进程可用）→ IPC 回 main；
   推理 = main 进程 onnxruntime-node（载入一次，常驻）。clip 栅格化同一块 Chromium 出图。**零新增渲染依赖**。
+
+#### C1 集成落地（2026-09-19，Layer 1–4 全部提交，用户批准 +20MB）
+> 修正：最终未用"隐藏 Chromium 出图"，改用 **@napi-rs/canvas 在 main 里直接渲染**（更简单、无 IPC/HTML/worker 编排，且体积只 +~5MB 原生库）。
+- **Layer 1** `layout-detector.ts`：ORT-node 会话（main），480² RGBA→区域框，缺依赖时优雅 no-op。单测载入真模型跑 p57 命中。
+- **Layer 2** `page-renderer.ts`：pdf.js(legacy)+@napi-rs/canvas 出 480² 检测缓冲 + clip→PNG。test-render 端到端产出干净职业阶梯图。
+- **Layer 3** `captureFlow` Step 7.5：逐页检测 image/chart，去重（与已抽位图 centerY 重叠）、滤碎条，clip 成 image block 插入阅读序。
+  全书审计 **9→61 图块（+52）/ 31s**；抽查 p285(3 图表)/p292(多图标) 均为真实多图非碎片；CAPTURE_VERSION→3。
+- **Layer 4** 打包：asarUnpack onnxruntime-node/@napi-rs/canvas/assets.layout；files 排除非 win32-x64 平台；after-pack 剪 GPU dll(~36MB)。
+  electron.vite 外部化两个原生包；build+verify(40) 绿。
+- **状态**：代码全部合入；dist 实测体积 + e2e（翻译后 PDF 出图）为收尾验证项。
+
+#### C1 集成回退记录（2026-09-19，Layer 3/4 已 revert，模块保留为地基）
+实测全书接线后发现**非纯收益**，按"有提升才导入 / 不容易报错"回退 captureFlow 接线与打包：
+- ✅ 纯矢量图页（p57 职业阶梯）：检测 + clip 干净出图，且**早期文本区过滤**消除了泄漏进正文的图内标签（Vice/Director/Staff…）。
+- ❌ **表格被误判为 image 的页（p55 IC/EM 对比表）**：检测器把样式化对比表标成 image 区，文本区过滤连带**吃掉了表格正文行** → 表格内容丢失。这正是 pdfzh §14 警告的"M4 无底洞"，在我们自己语料上复现。
+- 结论：**检测器质量达标（94% 召回）但"图区文本排除"与"表格/图误判"的长尾未收敛**，未经全书语料验证不能确保净收益 → 回退接线，避免回归。
+- **保留**：`layout-detector.ts` + `page-renderer.ts`（均带独立单测 test-detector/test-render，绿色）、全部 POC、体积实测数据。
+  `onnxruntime-node`/`@napi-rs/canvas` 移入 devDependencies（模块/测试可用，**不进安装包**），模型 asset 移除。verify 回 40 项、typecheck/build/regression 全绿。
+- **重启 C1 的前置条件**（下一步）：区域文本排除须**只删 label 样短行、保护表格/长句**；且需一张"图 vs 表"判别更准的检测器或加 IoU-与-已检测表格 保护；全书 ≥3 语料回归验证净收益后再上线。
 - **体积实测**：win-x64 CPU 仅需 `onnxruntime.dll`(27.4MB)+`binding.node`(0.3MB)；DirectML/dxcompiler/dxil(~36MB) 属 GPU EP，after-pack 剪。
   净增 **≈ +20MB 压缩**（模型 4.7MB 另计），安装器 97→约 117MB。**高于当初批准的 ~+10MB**（因省体积的 web 路线崩了）→ 已向用户回报此偏差待定。
 4. **新方案（把 C1 并入 P2 的 PP-DocLayout-S）**：用轻量版面检测 ONNX（PP-DocLayout-S，~10–30MB，CPU 每页几十 ms）**直接输出 figure/table/formula bbox**，绕过脆弱的几何聚类；拿到 bbox 后仍用 Chromium `render({clip})` 栅格化搬运。**C1 的成败现在等价于 PP-DocLayout-S 试验的成败** → P2#PP-DocLayout 提升为 C1 的实现路径，优先级提到 C2 之前。
