@@ -60,11 +60,15 @@ function backend(): boolean {
 
 function configureWorker() {
   if (workerConfigured || !pdfjs) return
-  try {
-    const p = require.resolve('pdfjs-dist/legacy/build/pdf.worker.js')
-    pdfjs.GlobalWorkerOptions.workerSrc = p
-  } catch {
-    pdfjs.GlobalWorkerOptions.workerSrc = path.join(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.js')
+  // flow.ts (same bundled pdfjs instance) already points workerSrc at the
+  // postbuild-copied ./pdf.worker.js. Only set it ourselves if that hasn't
+  // happened (e.g. this module is used standalone in a harness).
+  if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+    try {
+      pdfjs.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.js')
+    } catch {
+      pdfjs.GlobalWorkerOptions.workerSrc = path.join(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.js')
+    }
   }
   workerConfigured = true
 }

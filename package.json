@@ -66,15 +66,22 @@
             "!node_modules/@node-llama-cpp/win-x64-cuda/**",
             "!node_modules/@node-llama-cpp/win-x64-cuda-ext/**",
             "!node_modules/@node-llama-cpp/win-arm64/**",
+            "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**",
+            "!node_modules/onnxruntime-node/bin/napi-v6/linux/**",
+            "!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**",
             "!node_modules/lucide-react/**"
         ],
         "asarUnpack": [
             "node_modules/node-llama-cpp/**",
             "node_modules/@node-llama-cpp/win-x64/**",
             "node_modules/@node-llama-cpp/win-x64-vulkan/**",
+            "node_modules/onnxruntime-node/**",
+            "node_modules/@napi-rs/canvas/**",
+            "node_modules/@napi-rs/canvas-win32-x64-msvc/**",
             "node_modules/pdfjs-dist/cmaps/**",
             "node_modules/pdfjs-dist/standard_fonts/**",
-            "assets/fonts/**"
+            "assets/fonts/**",
+            "assets/layout/**"
         ],
         "win": {
             "target": [
