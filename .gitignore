@@ -114,3 +114,4 @@ assets/fonts/Consolas*.ttf
 # POC sandbox installs (agent scratch)
 poc/speed-v3/pylib/
 poc/speed-v3/node_modules/
+.qoder/
