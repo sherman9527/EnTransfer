@@ -152,7 +152,17 @@ function isTextItem(item: unknown): item is PdfjsTextItem {
 // ---------------------------------------------------------------------------
 
 const MONO_FONT_RE = /Courier|Consolas|Menlo|Monaco|monospace|Code\d*$/i
-const CODE_SYMBOL_RE = /[{};=[\]<>]|=>|::|\/\//g
+const CODE_SYMBOL_RE = /[{};=[\]<>|+%#]|=>|::|\/\/|->|--/g
+// Code blocks in these books use an OPAQUE subset font (e.g. "g_d0_f1") that
+// MONO_FONT_RE can't match, and their content (%sql, +---+ dumps, -- comments)
+// isn't in CODE_SYMBOL_RE — so they were translated as prose (E2E bug). Catch
+// them by explicit markers + a smaller-than-body font signal.
+const MAGIC_CELL_RE = /^\s*%\s*(sql|python|pyspark|scala|r|md|sh|bash|run)\b/i
+const ASCII_DUMP_RE = /^\s*[+][-+=|]{3,}|^\s*[|][-+=| ]{3,}\s*[|]/ // +----+ or |----|
+const SQL_CODE_RE = /\b(SELECT|FROM|WHERE|INSERT|INTO|CREATE|DROP|ALTER|MERGE|UPDATE|DELETE|GROUP BY|ORDER BY)\b/i
+const PY_CODE_RE = /^\s*(import |from \S+ import|def \w+\(|print\(|return |class \w+)/
+/** Font size at/below this fraction of body size is a code candidate. */
+const CODE_FONT_RATIO = 0.86
 
 /** Numbered list prefix: "1.", "1)", "1.1", "1.1.1", "(1)", "(a)", "a.", etc. */
 const LIST_NUMBERED_RE = /^\s*(?:\(\d+(?:\.\d+)*\)|\d+(?:\.\d+)*[.)]\s+|[a-zA-Z][.)]\s+)/
@@ -603,11 +613,17 @@ function classifyPara(p: Para, bodySize: number): ParaKind {
   const fSymCount = (text.match(FORMULA_SYMBOL_RE) || []).length
   if (text.length > 5 && fSymCount >= 2 && fSymCount / text.length > 0.08) return 'formula'
 
-  // Code: monospace font OR dense program symbols (parens excluded — too common in prose).
+  // Code: monospace font, dense program symbols, a magic cell (%sql/%python),
+  // a console ASCII dump (+---+ / |---|), or code language — the last only when
+  // the run is smaller than body (these books' code uses an opaque subset font
+  // MONO_FONT_RE can't see). The smallFont gate keeps prose like "select the
+  // best" or "a -- b" out of code. (E2E bug: SQL/console blocks were translated.)
   const isMono = MONO_FONT_RE.test(p.fontName)
+  const smallFont = p.fontSize > 0 && p.fontSize <= bodySize * CODE_FONT_RATIO
   const symCount = (text.match(CODE_SYMBOL_RE) || []).length
   const isDenseCode = text.length > 30 && symCount >= 3 && symCount > text.length / 12
-  if (isMono || isDenseCode) return 'code'
+  const isCodeLang = smallFont && (SQL_CODE_RE.test(text) || PY_CODE_RE.test(text) || symCount >= 2)
+  if (isMono || isDenseCode || MAGIC_CELL_RE.test(text) || ASCII_DUMP_RE.test(text) || isCodeLang) return 'code'
 
   // List item?
   if (LIST_NUMBERED_RE.test(text) || LIST_BULLET_RE.test(text)) return 'list-item'
