@@ -42,6 +42,13 @@ pdfzh 的**架构性选择**（Typst、PyMuPDF、外部 llama-server 进程、GB
 - **A/B**：取含公式/矢量图的样本页 ≥50，量「图/公式出现次数：现状 vs 栅格化」+「输出 PDF 目视正确率」+「体积/耗时增量」。
 - **采纳阈值**：召回 31%→≥70%，且输出体积增幅 ≤15%、无排版崩坏。
 
+#### C1 实测结论（2026-09-19，两个 headless 探针，已入库 `poc/eval-2026/`）
+1. **`figure-census.ts`（缺口定性）**：全书含 "Figure N." 的页 **44**，其中仅 **6** 页有位图 placement、**25 页是纯矢量绘制**。→ 召回缺口**主要是矢量图**，不是"能解码却被跳过的位图"。"用 pdf-lib 解码 CMYK/CCITT 即可补回"这条捷径**证伪**。
+2. **`vector-bbox-spike.ts`（瓶颈定位）**：栅格化不难（Chromium 有 canvas），**难的是从 pdfjs 拿矢量图 bbox**（我们没有 PyMuPDF 的 `get_drawings`）。用 CTM 栈投影 constructPath 坐标 + 6pt 间隙聚类，对 12 个纯矢量页**命中率仅 8%**（每页 25–109 个散碎 path rect，绝大多数是栏线/表格边框，与图形不可分）。
+3. **判定**：**朴素几何法否决**（8% ≪ 70% 阈值）。这正是 pdfzh §4.4 所说"只有 parse 的失败是静默的，模型预算要押在静默失败路径上"的点。
+4. **新方案（把 C1 并入 P2 的 PP-DocLayout-S）**：用轻量版面检测 ONNX（PP-DocLayout-S，~10–30MB，CPU 每页几十 ms）**直接输出 figure/table/formula bbox**，绕过脆弱的几何聚类；拿到 bbox 后仍用 Chromium `render({clip})` 栅格化搬运。**C1 的成败现在等价于 PP-DocLayout-S 试验的成败** → P2#PP-DocLayout 提升为 C1 的实现路径，优先级提到 C2 之前。
+5. **回退预案**：若 PP-DocLayout-S 召回也不达 70% 或体积/耗时不划算，则 C1 整体归 §2 否决表，维持"宁缺毋滥（矢量图暂缺，不产垃圾）"现状。
+
 ### C2 GBNF grammar 结构化输出（可能替代编号载体）
 - node-llama-cpp v3.20 **有** `LlamaGrammar`（已核）。用它约束模型只输出合法 `{id,zh}[]`，理论上把批次解析失败 4%→近 0，且消除"第7段译到第3位"错配。
 - **A/B**：poc 里对同一 80 例语料，grammar-JSON vs 编号载体，比：解析失败率、tok/s、质量分（掉分>2 不采）。
@@ -63,12 +70,12 @@ pdfzh 的**架构性选择**（Typst、PyMuPDF、外部 llama-server 进程、GB
 - 我们有 `dropRepeatedEdgeText`，但无"乱码占比"闸门。**成本极低**，可直接加进 capture 审计 + 单测。
 - **A/B**：对含 Type3/ CID 字体的样本，看能否拦下原本会进模型的乱码段（回归用例 R15）。
 
-## 4. 落地顺序（先测后采）
-1. **C1 区域栅格化**（价值最大 + 直接修我们已知 31% 硬伤 + 零依赖）→ 先做召回审计，再实现，再 A/B。
-2. **C5 garbage 过滤**（半天量级，安全兜底）。
-3. **C2 grammar 输出**（先小样验证 tok/s 不掉）。
-4. **C3 logprob**（先花 10 分钟确认 API 存在，不存在即砍）。
+## 4. 落地顺序（先测后采，已按 C1 实测重排）
+1. **C1 = PP-DocLayout-S 版面检测**（朴素几何法实测 8% 已否决，改用检测模型出 bbox → Chromium 栅格化；见 §3-C1 结论）。**提到第一**，成败等价于 PP-DocLayout-S 试验。
+2. **C5 garbage 过滤**（半天量级、无依赖、安全兜底，可与 C1 并行先落）。
+3. **C2 grammar 结构化输出**（独立于 C1，可并行；先小样验证 tok/s 不掉再 A/B）。
+4. **C3 logprob**（先花 10 分钟确认 node-llama-cpp v3.20 API 能取 per-token logprob，取不到即砍）。
 5. **C4 fuzzy TM**（最后做，污染风险需 `--learn` 显式门）。
-6. 顺带把我原有 P2（PP-DocLayout-S 试验、zip 便携验证、pdf-lib 兜底 mono 字体、llama.cpp 升级跟踪）并行推进。
+6. 其余 P2：zip 便携验证、pdf-lib 兜底 mono 字体、llama.cpp/node-llama-cpp 升级跟踪（重开投机解码的唯一触发条件）。
 
 > 注：用户已定 **术语表(P1#1) 不做**；其余 P1（图/公式栅格化=C1）与 P2 全做。pdfzh 借鉴项 **一律先过 A/B，赢了才进主线，输了归此文件 §2 否决表**。
