@@ -106,3 +106,20 @@
 opus-mt 的失败 + 结构性论据已足以回答"专用 NMT 是否更好"= 否。NLLB-3.3B 更大更慢
 (3.3B vs 1.7B)、同为非指令式 NMT、同样易复读，几乎不可能改变结论，且下载/转换成本高
 (~13GB, hf-mirror 慢)。建议：除非用户坚持，**不投入 NLLB 基准**，维持 Qwen3。
+
+## NanoJev (C-Tianyu/NanoJev) — 2026-09-19 — ❌ 类别错配，不采纳
+
+用户设想：用它做 (a) 翻译质量估计(QE) 决策、(b) 公式/结构分类。
+查其**一手资料**（HF README + MODEL_MANIFEST + 变体命名，非第三方报告）：
+
+- 本质 = Jev（typesafe.ai "System One models"）的 nano 复刻；**Qwen3-0.6B 骨干 + 结构化决策头**
+  （Choice / Boolean / Score），**零输出 token 解码**（分类头，非生成式）。
+- 用途/变体全是 **迷宫、贪吃蛇、游戏/事件决策**：`games_gold`(12×12 Snake)、
+  `local_atomic`(50×50 迷宫安全判断)、`events_brier/ce/paired`(观测事件 RLCD/Brier)。
+- 判定：
+  - (a) QE：它的 "Score 2–10" 头是对**游戏/事件奖励**校准的，不是翻译充分度；喂 (EN,ZH) 对
+    属严重分布外 → 数值无意义。**不适用**。
+  - (b) 结构分类：它的 "Choice" 头分的是**导航动作**，不是文本结构；公式/结构分类我们已有
+    ONNX PP-DocLayout 检测器（正确工具）。**不适用**。
+- 结论：架构层面即不匹配，下载+跑一遍属"用国际象棋引擎测 OCR"式的无效验证。若确需 QE，
+  正解是 COMET 类模型或 LLM-as-judge（我们的 Qwen3 自评即可起步），而非 NanoJev。
