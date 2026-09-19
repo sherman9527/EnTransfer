@@ -8,8 +8,12 @@ import { TranslationEngine, GENERIC_SYSTEM_PROMPT } from './electron/models/engi
 import { createPipeline } from './electron/pipeline'
 import type { TranslationJob } from './shared/types'
 
-const INPUT = path.join(process.cwd(), 'Manning.Think.Like.a.Software.Engineering.Manager.2024.6.pdf')
-const OUTPUT = path.join(process.cwd(), '.scratch', 'e2e-output-zh.pdf')
+const INPUT = process.env.EN_INPUT
+  ? path.join(process.cwd(), process.env.EN_INPUT)
+  : path.join(process.cwd(), 'Manning.Think.Like.a.Software.Engineering.Manager.2024.6.pdf')
+const OUTPUT = process.env.EN_OUTPUT
+  ? path.join(process.cwd(), process.env.EN_OUTPUT)
+  : path.join(process.cwd(), '.scratch', 'e2e-output-zh.pdf')
 const MODEL = path.join(process.cwd(), 'models', 'Qwen3-1.7B-Q4_K_M.gguf')
 const JOBS_DIR = path.join(process.cwd(), '.scratch', 'e2e-jobs')
 

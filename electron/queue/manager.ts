@@ -63,7 +63,7 @@ const clamp100 = (n: number): number => Math.max(0, Math.min(100, Number.isFinit
 
 export class JobManager {
   private readonly jobsDir: string
-  private readonly outputDir: string
+  private outputDir: string
   private readonly model: string
   private readonly onEvent?: (job: TranslationJob) => void
   private readonly opener?: (dir: string) => unknown | Promise<unknown>
@@ -89,6 +89,11 @@ export class JobManager {
   /** Inject the translation pipeline (dependency injection; real logic lives elsewhere). */
   setPipeline(pipeline: TranslationPipeline): void {
     this.pipeline = pipeline
+  }
+
+  /** Redirect where FUTURE jobs write their output PDF (settings change). */
+  setOutputDir(dir: string): void {
+    this.outputDir = dir
   }
 
   // ------------------------------------------------------------------ catalog

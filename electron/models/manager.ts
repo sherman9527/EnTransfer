@@ -4,7 +4,7 @@
 import { existsSync, rmSync } from 'node:fs'
 import type { ModelInfo, ModelStatus } from '../../shared/types'
 import { getModelInfo, getModelPath, getModels, DEFAULT_MODEL_ID } from './registry.ts'
-import { downloadModel, type DownloadProgress } from './download.ts'
+import { downloadModel, applyMirror, type DownloadProgress } from './download.ts'
 import { TranslationEngine } from './engine.ts'
 import { EngineManager, type InferenceSettings } from './engine-manager.ts'
 
@@ -26,6 +26,12 @@ export class ModelManager {
   private defaultModelId: string = DEFAULT_MODEL
   /** Inference preferences pushed from main process settings. */
   private inferenceSettings: InferenceSettings = {}
+  /** Download mirror origin ('' = keep registry URL). */
+  private mirror = ''
+
+  setMirror(mirror: string | undefined): void {
+    this.mirror = mirror ?? ''
+  }
 
   // -- Catalogue -----------------------------------------------------------
 
@@ -67,7 +73,7 @@ export class ModelManager {
   ): Promise<void> {
     try {
       await downloadModel(
-        info,
+        applyMirror(info, this.mirror),
         (p: DownloadProgress) => {
           this.runtimeProgress.set(id, {
             percent: Math.round(p.percent * 10) / 10,

@@ -1,9 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join, dirname } from 'node:path'
 import { mkdirSync } from 'node:fs'
-import type {
-  AppSettings
-} from '../shared/types'
 import { JobManager } from './queue/manager.ts'
 import { registerJobIpc } from './queue/ipc.ts'
 import { ModelManager } from './models/manager.ts'
@@ -11,6 +8,7 @@ import { registerModelIpc } from './models/ipc.ts'
 import { createPipeline } from './pipeline.ts'
 import { detectGpu } from './models/gpu.ts'
 import { detectCpu, describeCpu, getDefaultThreads } from './models/cpu-info.ts'
+import { SettingsStore, defaultSettings, settingsFileFor } from './settings.ts'
 
 // ---------------------------------------------------------------------------
 // Data root: portable mode — all data stays next to the app (requirement #20).
@@ -37,16 +35,18 @@ function ensureDataDirs(): void {
 let mainWindow: BrowserWindow | null = null
 let jobManager: JobManager | null = null
 let modelManager: ModelManager | null = null
+let settings: SettingsStore | null = null
 
 // One-time hardware probes (GPU init is expensive — never re-probe per request).
 let cachedGpu: Awaited<ReturnType<typeof detectGpu>> | null = null
 let cachedCpu: (import('../shared/types').CpuInfo) | null = null
 
 function createJobManager(): JobManager {
+  const s = settings?.current
   return new JobManager({
     jobsDir: jobsDir(),
-    outputDir: outputDir(),
-    model: mockSettings.defaultModel,
+    outputDir: s?.outputDir || outputDir(),
+    model: s?.defaultModel ?? '',
     onEvent: (job) => mainWindow?.webContents.send('job:updated', job),
     opener: (dir) => shell.openPath(dir)
   })
@@ -54,32 +54,22 @@ function createJobManager(): JobManager {
 
 function createModelManager(): ModelManager {
   // Settings is the single source of truth for the default model id.
-  const manager = new ModelManager(mockSettings.defaultModel)
+  const manager = new ModelManager(settings?.current.defaultModel)
   // Push live model status / download progress to the renderer.
   manager.onUpdated = (model) => mainWindow?.webContents.send('model:updated', model)
   return manager
 }
 
-// ---------------------------------------------------------------------------
-// In-memory mock settings (real settings storage lands in a later module)
-// ---------------------------------------------------------------------------
-const mockSettings: AppSettings = {
-  defaultModel: 'qwen3-1.7b-q4_k_m',
-  outputDir: outputDir(),
-  mirrorSource: 'https://modelscope.cn',
-  cpuThreads: 4,
-  device: 'auto',
-  threadsMode: 'auto',
-  manualThreads: 12
-}
-
 /** Push the inference-relevant slice of settings into the ModelManager. */
 function applyInferenceSettings(): void {
+  const s = settings?.current
+  if (!s) return
   modelManager?.setInferenceSettings({
-    device: mockSettings.device ?? 'auto',
-    threadsMode: mockSettings.threadsMode ?? 'auto',
-    manualThreads: mockSettings.manualThreads ?? mockSettings.cpuThreads
+    device: s.device ?? 'auto',
+    threadsMode: s.threadsMode ?? 'auto',
+    manualThreads: s.manualThreads ?? s.cpuThreads
   })
+  modelManager?.setMirror(s.mirrorSource)
 }
 
 // ---------------------------------------------------------------------------
@@ -129,10 +119,12 @@ function registerIpc(): void {
   // ---- Models (delegated to the real ModelManager) ----
   if (modelManager) registerModelIpc(ipcMain, modelManager)
 
-  // ---- Settings ----
-  ipcMain.handle('settings:get', () => mockSettings)
-  ipcMain.handle('settings:set', (_e, patch: Partial<AppSettings>) => {
-    Object.assign(mockSettings, patch)
+  // ---- Settings (persistent; real JSON store under dataRoot) ----
+  ipcMain.handle('settings:get', () => settings?.current)
+  ipcMain.handle('settings:set', (_e, patch: Partial<import('../shared/types').AppSettings>) => {
+    if (!settings) return undefined
+    const prev = { ...settings.current }
+    const next = settings.set(patch)
     applyInferenceSettings()
     // Keep the active default model in sync with settings (single source).
     if (patch.defaultModel && modelManager) {
@@ -142,7 +134,16 @@ function registerIpc(): void {
         // Unknown id — leave the current default untouched.
       }
     }
-    return mockSettings
+    // Output dir change takes effect for future jobs immediately.
+    if (patch.outputDir && patch.outputDir !== prev.outputDir && jobManager) {
+      try {
+        mkdirSync(patch.outputDir, { recursive: true })
+        jobManager.setOutputDir(patch.outputDir)
+      } catch {
+        // Unwritable dir — existing jobs keep their original outputPath.
+      }
+    }
+    return next
   })
 
   // ---- Hardware detection (GPU / CPU) for the settings page ----
@@ -166,7 +167,7 @@ function registerIpc(): void {
 
   // ---- App ----
   ipcMain.handle('app:open-folder', (_e, dir?: string) => {
-    void shell.openPath(dir ?? outputDir())
+    void shell.openPath(dir ?? settings?.current.outputDir ?? outputDir())
   })
 
   // ---- Models directory (manual model placement UX) ----
@@ -196,7 +197,7 @@ function registerIpc(): void {
     const opts: Electron.OpenDialogOptions = {
       title: '选择输出目录',
       properties: ['openDirectory', 'createDirectory'],
-      defaultPath: current ?? outputDir()
+      defaultPath: current ?? settings?.current.outputDir ?? outputDir()
     }
     const res = win
       ? await dialog.showOpenDialog(win, opts)
@@ -211,6 +212,10 @@ function registerIpc(): void {
 // ---------------------------------------------------------------------------
 app.whenReady().then(async () => {
   ensureDataDirs()
+
+  // Load persistent settings FIRST — managers and the job queue derive from it.
+  settings = new SettingsStore(settingsFileFor(dataRoot()), defaultSettings(outputDir()))
+  settings.load()
 
   jobManager = createJobManager()
   // Load the catalog + run startup orphan repair before any IPC answers.

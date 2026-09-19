@@ -8,7 +8,8 @@ import {
   existsSync,
   mkdirSync,
   statSync,
-  renameSync
+  renameSync,
+  unlinkSync
 } from 'node:fs'
 import { dirname } from 'node:path'
 import type { ModelInfo } from '../../shared/types'
@@ -26,6 +27,22 @@ export interface DownloadProgress {
 }
 
 const MIN_VALID_BYTES = 10 * 1024 * 1024 // 10 MB
+
+/**
+ * Rewrite a ModelScope download URL for the user's chosen mirror.
+ * Currently supports hf-mirror.com (same org/repo/file layout, main branch).
+ * Unknown mirror or non-ModelScope URLs pass through untouched.
+ */
+export function applyMirror(model: ModelInfo, mirror?: string): ModelInfo {
+  if (!mirror || mirror === 'https://modelscope.cn') return model
+  const m = /^https?:\/\/modelscope\.cn\/models\/(.+?)\/resolve\/master\/(.+)$/.exec(model.url)
+  if (!m) return model
+  const base = mirror.replace(/\/+$/, '')
+  if (base === 'https://hf-mirror.com') {
+    return { ...model, url: `${base}/${m[1]}/resolve/main/${m[2]}` }
+  }
+  return model
+}
 
 /**
  * Download a model to the local models directory. Supports resume via the
@@ -127,6 +144,9 @@ export async function downloadModel(
   renameSync(tmpPath, destPath)
   const finalSize = statSync(destPath).size
   if (finalSize < MIN_VALID_BYTES) {
+    // A server error page saved as .gguf would otherwise linger and confuse
+    // both the status probe and the next resume attempt — remove it.
+    try { unlinkSync(destPath) } catch { /* best effort */ }
     throw new Error(`Downloaded file too small (${finalSize} bytes), likely truncated`)
   }
   onProgress({ downloaded: finalSize, total: finalSize, speed: 0, percent: 100 })
