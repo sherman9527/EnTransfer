@@ -335,6 +335,13 @@ function detectTables(lines: RawLine[]): { tables: DetectedTable[]; skip: Set<Ra
       if (run.length < TABLE_MIN_ROWS) continue
       // Require the run to actually contain a full (>=3-col) row.
       if (!run.some((m) => m.cols.length >= TABLE_MIN_COLS)) continue
+      // Console ASCII dumps (+---+ / |---| command output) are CODE, not tables.
+      // Real typeset tables use drawn vector rules, never literal + - | text, so
+      // the presence of border text is a reliable console-dump signal. Skip the
+      // run so its lines fall through to the prose->code path (and so a
+      // full-width paragraph above the dump isn't absorbed into column 1).
+      const borderLines = run.filter((m) => ASCII_DUMP_RE.test(m.line.text)).length
+      if (borderLines >= 2) continue
 
       // Split run into rows by intra-row vs inter-row gap.
       const ncols = anchors.length
