@@ -221,3 +221,14 @@ llama-engine.ts(TDZ/gpuLayers判断/spec开关/分句阈值/maxTokens钳制) reg
 - **mono 字体兜底修复 R16** + verify 加 3 项守卫（现 43 项）。
 - **第二语料 Delta Lake 验证 C1 保守门无回归**（30 页冷跑 201 单元、1.5% 回退、0 假阳图）。
 - 交付：gate 全绿 → dist 出 exe（含 C1 图召回 + 全部修复）。LoRA 微调管线待用户英文 PDF。
+
+## 2026-09-19 (续) — 全面 code review + E2E 代码/表格修复 + 改名译事郎
+- **改名**：productName/标题/快捷方式/UI → 译事郎；保留 ASCII name=entransfer + appId（卸载器 entransfer-updater 零残留依赖它）。userData 已钉死安装目录，改名不影响。
+- **opus-mt-en-zh (CT2 int8) 实测否决**：速度尚可(1.23段/s CPU)但退化重复严重、无法跟随管线指令 → Qwen3-1.7B 确认。权重已删(~1.8GB)。NLLB 按用户决定跳过。
+- **NanoJev 否决**：一手资料确认=迷宫/贪吃蛇/游戏并行决策模型(Qwen3-0.6B+决策头)，非 QE 非结构分类器，类别错配。
+- **4-agent 全量 code review**，修真实 bug：capture #1断词几何化/#2表格单元格空格/#3图表插入改单次稳定排序/#4旁注(随#2解)/#5页眉页脚剥离/#11 stripBleedingPageNumbers罗马校验；engine #4 sickRebuilds清零/#8缓存键补topK,topP/#15熔断分母/#9 queueStore竞态/#16默认模型同步；typeset #5 loadFile超时/#6图片限高/#7 thead/#13 canvas dispose；renderer #1取消按钮/#10默认模型显示。#12/#17/#18 判为非缺陷(附理由)。R17-R20 回归测试。
+- **死代码清理**：REGION_CLASSES/isAvailable/currentModelPath/IpcChannel/IpcEvent/TitleBar。
+- **R9 加固**：缓存 rename EPERM 退避重试 + 失败清 tmp → gate 不再偶发红。
+- **E2E 关键修复（用户实测 Delta Lake 截图）**：代码块用不透明子集字体 g_d0_f1，MONO_FONT_RE 认不出 → 新增 magic-cell(%sql/%sh)/ASCII-dump(+---+)/REPL提示(scala>)/路径/小字号+关键字 判代码；**代码行不再合并**（保 newline，修控制台墙）；**detectTables 按字体名排除代码字体**（JSON/控制台dump→代码，真表格字体保留）。验证：Delta 代码块 512(208多行)、表格→2；Manning 真表格仍 9（对照无误伤）。
+- **LoRA 管线脚手架**：harvest-segments(CJK/页眉/水印过滤)、align_embed(LaBSE/MiniLM 单调对齐)、train_lora(QLoRA)、eval_gate。结论：自动对齐精度上限~50%（2.5:1粒度错配），数据是瓶颈非管线。
+- 交付：gate 全绿、verify 43/43 → 重打 译事郎 Setup 0.1.0.exe。push 待网络（本地多个 commit 排队）。
