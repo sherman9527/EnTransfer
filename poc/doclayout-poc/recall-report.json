@@ -1,0 +1,482 @@
+{
+ "captioned_pages": 33,
+ "pages_with_figure_or_table_box": 31,
+ "recall_pct": 93.9,
+ "baseline_recall_pct": 18.2,
+ "class_census_top": {
+  "text": 312,
+  "image": 68,
+  "paragraph_title": 55,
+  "header": 37,
+  "number": 33,
+  "figure_title": 23,
+  "chart": 9,
+  "table": 8,
+  "chart_title": 2,
+  "table_title": 1,
+  "footnote": 1,
+  "doc_title": 1
+ },
+ "sample_boxes": [
+  {
+   "page": 57,
+   "boxes": [
+    [
+     "image",
+     0.732,
+     [
+      336.2,
+      50.4,
+      476.3,
+      413.1
+     ]
+    ],
+    [
+     "image",
+     0.455,
+     [
+      338.5,
+      359.8,
+      382.3,
+      414.8
+     ]
+    ],
+    [
+     "image",
+     0.31,
+     [
+      338.5,
+      303.2,
+      379.7,
+      360.0
+     ]
+    ]
+   ]
+  },
+  {
+   "page": 58,
+   "boxes": [
+    [
+     "image",
+     0.739,
+     [
+      92.6,
+      473.7,
+      462.4,
+      540.4
+     ]
+    ]
+   ]
+  },
+  {
+   "page": 61,
+   "boxes": [
+    [
+     "image",
+     0.796,
+     [
+      103.9,
+      49.9,
+      395.0,
+      274.7
+     ]
+    ]
+   ]
+  },
+  {
+   "page": 64,
+   "boxes": [
+    [
+     "image",
+     0.66,
+     [
+      54.7,
+      99.9,
+      458.3,
+      273.9
+     ]
+    ],
+    [
+     "image",
+     0.554,
+     [
+      67.4,
+      100.5,
+      443.6,
+      177.5
+     ]
+    ],
+    [
+     "image",
+     0.425,
+     [
+      73.8,
+      101.3,
+      133.2,
+      175.5
+     ]
+    ],
+    [
+     "image",
+     0.416,
+     [
+      56.1,
+      199.4,
+      461.5,
+      273.4
+     ]
+    ],
+    [
+     "image",
+     0.397,
+     [
+      373.5,
+      100.8,
+      436.8,
+      176.5
+     ]
+    ],
+    [
+     "image",
+     0.383,
+     [
+      218.1,
+      99.9,
+      284.2,
+      176.1
+     ]
+    ]
+   ]
+  },
+  {
+   "page": 90,
+   "boxes": [
+    [
+     "image",
+     0.658,
+     [
+      92.7,
+      367.3,
+      309.9,
+      418.7
+     ]
+    ]
+   ]
+  },
+  {
+   "page": 144,
+   "boxes": [
+    [
+     "image",
+     0.794,
+     [
+      58.7,
+      50.3,
+      466.8,
+      311.2
+     ]
+    ]
+   ]
+  },
+  {
+   "page": 146,
+   "boxes": [
+    [
+     "image",
+     0.909,
+     [
+      91.6,
+      51.7,
+      384.0,
+      246.4
+     ]
+    ]
+   ]
+  },
+  {
+   "page": 148,
+   "boxes": [
+    [
+     "image",
+     0.72,
+     [
+      129.6,
+      50.0,
+      403.9,
+      278.3
+     ]
+    ],
+    [
+     "image",
+     0.57,
+     [
+      91.6,
+      236.3,
+      135.2,
+      276.7
+     ]
+    ],
+    [
+     "image",
+     0.53,
+     [
+      422.0,
+      236.0,
+      464.5,
+      277.8
+     ]
+    ],
+    [
+     "image",
+     0.492,
+     [
+      309.8,
+      236.2,
+      352.9,
+      277.2
+     ]
+    ],
+    [
+     "image",
+     0.466,
+     [
+      196.2,
+      236.0,
+      239.2,
+      277.2
+     ]
+    ],
+    [
+     "image",
+     0.458,
+     [
+      142.0,
+      176.0,
+      184.7,
+      217.8
+     ]
+    ]
+   ]
+  },
+  {
+   "page": 174,
+   "boxes": [
+    [
+     "table",
+     0.769,
+     [
+      91.5,
+      234.3,
+      424.7,
+      291.9
+     ]
+    ]
+   ]
+  },
+  {
+   "page": 187,
+   "boxes": [
+    [
+     "image",
+     0.652,
+     [
+      99.5,
+      51.6,
+      294.9,
+      155.4
+     ]
+    ],
+    [
+     "image",
+     0.554,
+     [
+      99.4,
+      52.8,
+      429.5,
+      155.5
+     ]
+    ],
+    [
+     "image",
+     0.302,
+     [
+      100.4,
+      57.4,
+      190.0,
+      153.8
+     ]
+    ]
+   ]
+  }
+ ],
+ "elapsed_s": 1.7,
+ "pages": [
+  57,
+  58,
+  61,
+  64,
+  90,
+  135,
+  143,
+  144,
+  146,
+  148,
+  174,
+  187,
+  190,
+  200,
+  208,
+  215,
+  228,
+  235,
+  243,
+  251,
+  255,
+  259,
+  261,
+  262,
+  264,
+  285,
+  289,
+  292,
+  294,
+  319,
+  321,
+  326,
+  327
+ ],
+ "per_page": [
+  {
+   "page": 57,
+   "figure_like_boxes": 3
+  },
+  {
+   "page": 58,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 61,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 64,
+   "figure_like_boxes": 7
+  },
+  {
+   "page": 90,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 135,
+   "figure_like_boxes": 0
+  },
+  {
+   "page": 143,
+   "figure_like_boxes": 0
+  },
+  {
+   "page": 144,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 146,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 148,
+   "figure_like_boxes": 11
+  },
+  {
+   "page": 174,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 187,
+   "figure_like_boxes": 3
+  },
+  {
+   "page": 190,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 200,
+   "figure_like_boxes": 3
+  },
+  {
+   "page": 208,
+   "figure_like_boxes": 2
+  },
+  {
+   "page": 215,
+   "figure_like_boxes": 2
+  },
+  {
+   "page": 228,
+   "figure_like_boxes": 3
+  },
+  {
+   "page": 235,
+   "figure_like_boxes": 3
+  },
+  {
+   "page": 243,
+   "figure_like_boxes": 6
+  },
+  {
+   "page": 251,
+   "figure_like_boxes": 2
+  },
+  {
+   "page": 255,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 259,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 261,
+   "figure_like_boxes": 3
+  },
+  {
+   "page": 262,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 264,
+   "figure_like_boxes": 2
+  },
+  {
+   "page": 285,
+   "figure_like_boxes": 6
+  },
+  {
+   "page": 289,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 292,
+   "figure_like_boxes": 9
+  },
+  {
+   "page": 294,
+   "figure_like_boxes": 1
+  },
+  {
+   "page": 319,
+   "figure_like_boxes": 2
+  },
+  {
+   "page": 321,
+   "figure_like_boxes": 2
+  },
+  {
+   "page": 326,
+   "figure_like_boxes": 2
+  },
+  {
+   "page": 327,
+   "figure_like_boxes": 2
+  }
+ ]
+}

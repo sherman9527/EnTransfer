@@ -46,6 +46,12 @@ pdfzh 的**架构性选择**（Typst、PyMuPDF、外部 llama-server 进程、GB
 1. **`figure-census.ts`（缺口定性）**：全书含 "Figure N." 的页 **44**，其中仅 **6** 页有位图 placement、**25 页是纯矢量绘制**。→ 召回缺口**主要是矢量图**，不是"能解码却被跳过的位图"。"用 pdf-lib 解码 CMYK/CCITT 即可补回"这条捷径**证伪**。
 2. **`vector-bbox-spike.ts`（瓶颈定位）**：栅格化不难（Chromium 有 canvas），**难的是从 pdfjs 拿矢量图 bbox**（我们没有 PyMuPDF 的 `get_drawings`）。用 CTM 栈投影 constructPath 坐标 + 6pt 间隙聚类，对 12 个纯矢量页**命中率仅 8%**（每页 25–109 个散碎 path rect，绝大多数是栏线/表格边框，与图形不可分）。
 3. **判定**：**朴素几何法否决**（8% ≪ 70% 阈值）。这正是 pdfzh §4.4 所说"只有 parse 的失败是静默的，模型预算要押在静默失败路径上"的点。
+
+#### C1 检测器实测（PP-DocLayout-S ONNX，`poc/doclayout-poc/`，2026-09-19）—— **采纳**
+- 模型：`stefanj0/PP-DocLayout-S-ONNX` **4.7MB / Apache-2.0 / CPU**（`recall_test.py`，repo 内 venv，产物 `recall-report.json`）。
+- **召回：真实题注页 33（严格行首 `Figure N.：` 规则，剔除 11 个正文交叉引用），检出 31 → 93.9%；现状位图法仅 18.2%**。仅 50ms/页（33 页含渲染 1.7s）。
+- 目视核对 2 个"未命中"页（135/143）：均为句首交叉引用（"Figure 5.2 shows…"）非真图 → **检测器对真图召回≈100%**，2 例是**题注检测**的假阳，不是漏检。
+- **判定：C1 达标（≥70%）**，采纳检测器路线。**遗留成本待测**：生产集成需 onnxruntime-web(WASM)+模型，对"压制体积"是真实增量 → 下一步先量体积 delta 再定嵌入形态（见 #20 后续）。
 4. **新方案（把 C1 并入 P2 的 PP-DocLayout-S）**：用轻量版面检测 ONNX（PP-DocLayout-S，~10–30MB，CPU 每页几十 ms）**直接输出 figure/table/formula bbox**，绕过脆弱的几何聚类；拿到 bbox 后仍用 Chromium `render({clip})` 栅格化搬运。**C1 的成败现在等价于 PP-DocLayout-S 试验的成败** → P2#PP-DocLayout 提升为 C1 的实现路径，优先级提到 C2 之前。
 5. **回退预案**：若 PP-DocLayout-S 召回也不达 70% 或体积/耗时不划算，则 C1 整体归 §2 否决表，维持"宁缺毋滥（矢量图暂缺，不产垃圾）"现状。
 
