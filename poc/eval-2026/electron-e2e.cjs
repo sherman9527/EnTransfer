@@ -20,9 +20,10 @@ async function main() {
   fs.rmSync(jobsDir, { recursive: true, force: true })
   fs.mkdirSync(jobsDir, { recursive: true })
   const pipeline = createPipeline({ getEngine: async () => engine }, jobsDir, { pageLimit: Number(process.env.E2E_PAGE_LIMIT ?? 400) })
-  const out = path.join(ROOT, '.scratch', 'electron-e2e-zh.pdf')
+  const out = process.env.EN_OUT ? path.resolve(process.env.EN_OUT) : path.join(ROOT, '.scratch', 'electron-e2e-zh.pdf')
+  const inputPath = process.env.EN_PDF ? path.resolve(process.env.EN_PDF) : path.join(ROOT, 'Manning.Think.Like.a.Software.Engineering.Manager.2024.6.pdf')
   const job = {
-    id: 'electron-e2e', inputPath: path.join(ROOT, 'Manning.Think.Like.a.Software.Engineering.Manager.2024.6.pdf'),
+    id: 'electron-e2e', inputPath,
     outputPath: out, status: 'queued', progress: 0, totalPages: 0, currentPage: 0,
     model: 'qwen3-1.7b-q4_k_m', createdAt: Date.now(), updatedAt: Date.now()
   }

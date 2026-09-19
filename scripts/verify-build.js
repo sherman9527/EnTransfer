@@ -174,6 +174,13 @@ check('没有静态 require/import node-llama-cpp', !staticLlamaImport, '发现�
   check('R11 打印前等 fonts/图片解码而非固定 sleep', print.includes('document.fonts.ready') && !print.includes('setTimeout(r, 500'), '固定 500ms 等待回归')
   const html = readText('electron/pdf/typeset/htmlFlow.ts')
   check('R12 data URI 覆盖 webp/gif MIME', html.includes('image/webp') && html.includes('image/gif'), '图片格式映射缺项')
+  // R16: pdf-lib fallback code blocks must draw with the mono font they were measured with.
+  const tflow = readText('electron/pdf/typeset/flow.ts')
+  check('R16 代码块用 mono 字体绘制（与测量一致）', tflow.includes('rgb(0.15, 0.15, 0.15), false, true)'), '代码回退绘制未传 mono，测量/渲染字体不一致会错位')
+  // C1: layout pass must run detection BEFORE prose assembly (protect tables) and gate on ink.
+  const cap = readText('electron/pdf/capture/flow.ts')
+  check('C1 表格检测在区域文本过滤之前', cap.indexOf('detectTables(bodyLines)') < cap.indexOf('!lineInRegion(l, regionsByPage)'), '顺序颠倒会重蹈 9→8 表格回归')
+  check('C1 保守门按 ink 上限过滤', cap.includes('FIGURE_MAX_INK_PCT'), '缺少低-ink 保守门，会误栅格化密集表/图')
 }
 
 // ── 4. 资源文件检查 ───────────────────────────────────

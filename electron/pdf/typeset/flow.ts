@@ -96,11 +96,15 @@ function drawLine(
   fonts: FlowFonts,
   size: number,
   color = INK,
-  heading = false
+  heading = false,
+  mono = false
 ): void {
   let cx = x
   const runFont = (run: { script: string }): PDFFont => {
-    if (run.script === 'mono') return fonts.mono
+    // Code lines are measured with the mono font (codeAdapter), so they MUST be
+    // drawn with it too — otherwise measured width != drawn width and runs
+    // misalign. CJK falls back to regular (Consolas has no CJK glyphs).
+    if (mono || run.script === 'mono') return run.script === 'cjk' ? fonts.regular : fonts.mono
     return heading ? fonts.bold : fonts.regular
   }
   for (const run of line.runs) {
@@ -506,7 +510,7 @@ export async function typesetFlow(
 
       baselineY -= style.before
       for (const line of wrappedLines) {
-        drawLine(page, line, codeLeft, baselineY, fonts, style.size, rgb(0.15, 0.15, 0.15))
+        drawLine(page, line, codeLeft, baselineY, fonts, style.size, rgb(0.15, 0.15, 0.15), false, true)
         baselineY -= style.lineHeight
       }
       baselineY -= style.after
