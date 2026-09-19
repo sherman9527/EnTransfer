@@ -1,5 +1,24 @@
 # MEMO — Agent 工作日志（滚动记录，防上下文丢失）
 
+## P0 便携化收口（用户新增需求：卸载零残留）——代码完成 bf50722+87ffbb0
+- 审计结论：models/jobs/output/settings/cache 本来就在安装根下（appRoot），但有 3 漏点：
+  1. Electron/Chromium 会话数据默认 %APPDATA%\EnTransfer → `app.setPath('userData', <root>/data/session)`（ready 前，模块顶层）
+  2. printToPDF 中间 HTML 走系统 tmp → workTmpDir 参数（pipeline 传 data/tmp，finally 删除）
+  3. NSIS 不删运行期生成文件 → build/uninstaller.nsh customUnInstall 强删 $INSTDIR\models + data；deleteAppDataOnUninstall 清旧版 appData 遗留
+- verify-build 新增 7 项防回归检查（现 31 项全过）；README 修正模型路径错误（原写 data/models，实为 models）+ 新增数据位置/零残留表
+- 坑：`.gitignore` 的 `build/*` 把 uninstaller.nsh 挡住了——`git add -f` 补救（该文件必须跟踪，否则打包断链）
+- 待办（回归跑完后）：npm run dist → 静默安装到测试目录 → 启动生成运行期文件 → 静默卸载 → 断言目录清空。全书回归进度：见本文件底部。
+
+## Phase 1 完成（09-19 上午，5 个 commit）
+- 1e7d14c Chromium 排版器（主）+ pdf-lib 自动降级 + IDE 代码高亮（子集检测+置信角标，SQL→vbnet 类误标根除）
+- 692a1c9 校验阶梯（两阶段不变量、重试1次、回退记 quality-report.jsonl、原文保留徽章）+ 内容寻址缓存接入（热跑 18.5s→5.1s、20/27 命中）+ 熔断（>30% 回退中止）
+- d7616ef GPU→CPU 热接管（sick 引擎→管理器粘性 CPU 重建→单元重试一次；演练测试过）
+- 9c222b5 段落续接合并 + 跨页重复边带过滤 + **CAPTURE_VERSION 形状守卫**（升级提取后旧 unit 检查点自动归档不串位；drill: v1→v2 靠缓存 4.6s 重跑）
+- 783a780 Electron 真机全管线 E2E：4 页 Chromium PDF、页脚"1/4"、85% CJK ✓
+- 表格回退 VERBATIM（用户决策：避免 Status 类中英混排），排版改良保留
+- 用户约束记录：不碰 CUDA；许可不是约束（本地自用）；GPU 坏 CPU 顶上=已实现；一切文件留在项目目录内
+- 待办：353 页全书新排版器回归（printToPDF 大文档耗时/内存实测）→ Phase 2（矢量图光栅化/术语表/PP-DocLayout-S ONNX 试点）
+
 > 本文件是 Qoder agent 本次任务的行为日志 + 结论暂存区。最终会整理成正式方案文档。
 
 ## 任务（用户指令汇总）
@@ -131,3 +150,22 @@ llama-engine.ts(TDZ/gpuLayers判断/spec开关/分句阈值/maxTokens钳制) reg
 3. CPU 场景多序列吞吐（回答"动态并发"）。
 4. 表格/图片/code 重排质量改进小样（对照用户新要求）。
 5. 汇总方案文档 docs/PROPOSAL-2026-09.md（含 bug 清单、实测数据、推荐路线、EXE 体积方案）。
+
+## 2026-09-19 上午：对抗评审修复 + TDD 防回归 + 死代码/体积裁剪
+- **全书 353 页回归（Chromium 排版首跑，11:02 完成，exit 0）**：1999 任务；批次 111 命中/6 回退；
+  校验回退 22/1999=1.1%；缓存命中 108；capture 4.7s；输出 10.6MB（vs pdf-lib 时代 24.9MB）。
+- **12 个确认 bug 全修**（R1–R12，明细见 docs/REGRESSION.md 台账）：其中 HIGH 两个——
+  批翻译空槽会静默删段（numberSplit 现在拒空串，拆到 electron/batch-format.ts）；
+  缓存键温度写死（改 engine.temperature）。MED：熔断吞报告、magnitude 数字豁免过宽、
+  dispose 不 await、sick 过激（改硬件错误特征匹配+连3次升级）、重建无上限（3 次后显式报错）。
+- **TDD 机制落地**（用户指示）：electron/regression.__test__.ts（28 条纯函数红用例，<1s）+
+  verify-build 3g 结构不变式（7 条）+ docs/REGRESSION.md（规则/台账/模板）+ AGENTS.md
+  （提交门禁 npm run gate / 修 bug 先补红用例）。npm test / npm run gate 新脚本。
+- **死代码清理**：删 engine.ts 门面、thread-benchmark.ts、pdf/types.ts 全家（含 index 再导出）、
+  measure.ts fitTextToBox 簇、gpu.ts 两个未引用函数。typecheck 抓回 manager.ts 对门面的隐性依赖，已改指 engine-interface。
+- **体积**：打包剔除 NotoSansSC-Subset.ttf(-13MB)；after-pack 删 9 个 ggml-cpu ISA 变体 DLL(约-15MB 解包)，
+  保留 x64/sse42/ivybridge/haswell/alderlake/zen4 梯度（老 CPU 兜底+新 CPU 满速）。
+- 验证链全绿：gate(typecheck+28)→verify(38/38)→重建 bundle→12页 Electron E2E（缓存 20/27，新打印等待路径 OK）。
+- 提交：abb1c03 fix(review) / c0a742f chore(trim) / UX 批次 feat(ui)。
+- 待办：① 全书 warm 重跑（验证 R1–R3 在全量下的行为）② npm run dist + 安装→卸载零残留演练（task #17）
+  ③ phase2：矢量图区域栅格化、用户术语表、PP-DocLayout-S 试验。
