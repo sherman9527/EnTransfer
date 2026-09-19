@@ -93,22 +93,25 @@ export async function renderForDetect(pdfPath: string, pageNumber: number, scale
   const doc = await getDoc(pdfPath)
   if (!doc) return null
   const page = await doc.getPage(pageNumber)
+  let full: { dispose?: () => void } | null = null
+  let small: { dispose?: () => void } | null = null
   try {
     const vp = page.getViewport({ scale })
     const renderW = Math.ceil(vp.width)
     const renderH = Math.ceil(vp.height)
-    const full = createCanvas!(renderW, renderH)
-    await page.render({ canvasContext: full.getContext('2d'), viewport: vp }).promise
-    const small = createCanvas!(480, 480)
-    const sctx = small.getContext('2d')
-    sctx.drawImage(full, 0, 0, 480, 480)
+    full = createCanvas!(renderW, renderH)
+    await page.render({ canvasContext: (full as any).getContext('2d'), viewport: vp }).promise
+    small = createCanvas!(480, 480)
+    const sctx = (small as any).getContext('2d')
+    sctx.drawImage(full as any, 0, 0, 480, 480)
     const img = sctx.getImageData(0, 0, 480, 480).data
     const rgba = new Uint8Array(img.buffer ? img.byteLength : img.length)
     for (let i = 0; i < rgba.length; i++) rgba[i] = img[i]
-    full.dispose?.()
-    small.dispose?.()
     return { rgba, renderW, renderH, scale }
   } finally {
+    // Dispose canvases even if render/drawImage threw (canvas leak otherwise).
+    full?.dispose?.()
+    small?.dispose?.()
     await page.cleanup()
   }
 }
@@ -123,23 +126,25 @@ export async function renderClip(pdfPath: string, pageNumber: number, box: ClipB
   const doc = await getDoc(pdfPath)
   if (!doc) return null
   const page = await doc.getPage(pageNumber)
+  let full: { dispose?: () => void } | null = null
+  let out: { dispose?: () => void } | null = null
   try {
     const vp = page.getViewport({ scale })
     const renderW = Math.ceil(vp.width)
     const renderH = Math.ceil(vp.height)
-    const full = createCanvas!(renderW, renderH)
-    await page.render({ canvasContext: full.getContext('2d'), viewport: vp }).promise
+    full = createCanvas!(renderW, renderH)
+    await page.render({ canvasContext: (full as any).getContext('2d'), viewport: vp }).promise
     const x0 = Math.max(0, Math.round(box.x0))
     const y0 = Math.max(0, Math.round(box.y0))
     const w = Math.max(1, Math.min(renderW - x0, Math.round(box.x1 - box.x0)))
     const h = Math.max(1, Math.min(renderH - y0, Math.round(box.y1 - box.y0)))
-    const out = createCanvas!(w, h)
-    out.getContext('2d').drawImage(full, x0, y0, w, h, 0, 0, w, h)
-    const png: Buffer = out.toBuffer('image/png')
-    full.dispose?.()
-    out.dispose?.()
+    out = createCanvas!(w, h)
+    ;(out as any).getContext('2d').drawImage(full as any, x0, y0, w, h, 0, 0, w, h)
+    const png: Buffer = (out as any).toBuffer('image/png')
     return { png, w, h }
   } finally {
+    full?.dispose?.()
+    out?.dispose?.()
     await page.cleanup()
   }
 }

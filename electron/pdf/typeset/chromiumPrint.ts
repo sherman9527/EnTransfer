@@ -26,7 +26,9 @@ export async function printHtmlToPdf(html: string, outPath: string, workTmpDir?:
   try {
     await fsp.writeFile(file, html, 'utf8')
     win = new BrowserWindow({ show: false, width: 794, height: 1123, webPreferences: { sandbox: true, backgroundThrottling: false } })
-    await win.loadFile(file) // resolves on did-finish-load
+    // Bounded load: an un-timed loadFile that hangs would await forever, skip the
+    // finally (leaking the hidden window) and never reach the pdf-lib fallback.
+    await withTimeout(win.loadFile(file), PRINT_TIMEOUT_MS, 'loadFile timeout') // resolves on did-finish-load
     // Pagination must not run before webfonts and data-URI images are decoded —
     // otherwise images are dropped from printed pages. Await the real signals
     // (bounded), not a fixed sleep.

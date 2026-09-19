@@ -246,7 +246,10 @@ export async function typesetFlow(
       // Calculate display dimensions: scale to fit CONTENT_W, preserve aspect.
       const pxW = block.imagePixelWidth ?? img.width
       const pxH = block.imagePixelHeight ?? img.height
-      const scale = Math.min(1, CONTENT_W / pxW)
+      // Clamp by BOTH width and available page height — a tall image scaled only
+      // to CONTENT_W overflowed below CONTENT_BOTTOM (baselineY went negative).
+      const maxH = CONTENT_TOP - CONTENT_BOTTOM - IMAGE_SPACING_BEFORE - IMAGE_SPACING_AFTER
+      const scale = Math.min(1, CONTENT_W / pxW, maxH / pxH)
       const drawW = pxW * scale
       const drawH = pxH * scale
 

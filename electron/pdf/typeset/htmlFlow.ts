@@ -73,12 +73,16 @@ function buildTable(block: ContentBlock): string {
   const colgroup = widths.length === cols
     ? `<colgroup>${widths.map((w) => `<col style="width:${(w * 100).toFixed(1)}%">`).join('')}</colgroup>`
     : ''
-  const rows = cells.map((row, r) => {
-    const tag = r === 0 && block.hasHeader ? 'th' : 'td'
-    const cellsHtml = Array.from({ length: cols }, (_, c) => `<${tag}>${esc(row[c] ?? '')}</${tag}>`).join('')
-    return `<tr>${cellsHtml}</tr>`
-  }).join('')
-  return `<table class="structured-table">${colgroup}<tbody>${rows}</tbody></table>`
+  const rowHtml = (row: string[], header: boolean): string => {
+    const tag = header ? 'th' : 'td'
+    return `<tr>${Array.from({ length: cols }, (_, c) => `<${tag}>${esc(row[c] ?? '')}</${tag}>`).join('')}</tr>`
+  }
+  // Header row in <thead> so Chromium repeats it across page breaks (the
+  // pdf-lib fallback already does this; the primary path must too).
+  const hasHead = block.hasHeader && cells.length > 0
+  const thead = hasHead ? `<thead>${rowHtml(cells[0], true)}</thead>` : ''
+  const bodyRows = (hasHead ? cells.slice(1) : cells).map((r) => rowHtml(r, false)).join('')
+  return `<table class="structured-table">${colgroup}${thead}<tbody>${bodyRows}</tbody></table>`
 }
 
 export function blocksToHtml(blocks: ContentBlock[], opts: HtmlOptions = {}): string {
