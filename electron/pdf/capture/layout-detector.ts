@@ -34,9 +34,6 @@ export const CLASS_NAMES = [
   'header_image', 'footer_image', 'aside_text'
 ] as const
 
-/** Classes we treat as "must be carried as a rasterized region, never translated". */
-export const REGION_CLASSES = new Set(['image', 'chart', 'table', 'formula'])
-
 const MEAN = [0.485, 0.456, 0.406]
 const STD = [0.229, 0.224, 0.225]
 const DET_SIZE = 480
@@ -77,11 +74,6 @@ export class LayoutDetector {
   private session: OrtSession | null = null
   private loadError: string | null = null
   private loading: Promise<void> | null = null
-
-  /** true once a session is ready; false (permanently) if the backend/model is unavailable. */
-  get isAvailable(): boolean {
-    return this.session !== null
-  }
 
   /** Lazily load the model (idempotent, safe to call per page). */
   async ensureLoaded(): Promise<boolean> {

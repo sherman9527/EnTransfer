@@ -178,13 +178,8 @@ export class LlamaCppEngine {
     return this.model !== null && this.context !== null && this.session !== null
   }
 
-  /** Absolute path of the loaded model (compat: used to be `currentModelPath`). */
+  /** Absolute path of the loaded model. */
   get modelPath(): string {
-    return this.loadedPath
-  }
-
-  /** @deprecated use modelPath; kept for backward compatibility. */
-  get currentModelPath(): string {
     return this.loadedPath
   }
 

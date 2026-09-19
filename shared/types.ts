@@ -94,33 +94,6 @@ export interface GpuInfo {
   name?: string
 }
 
-/** IPC request channels (ipcRenderer.invoke / ipcMain.handle). */
-export type IpcChannel =
-  | 'job:list'
-  | 'job:add'
-  | 'job:pause'
-  | 'job:resume'
-  | 'job:cancel'
-  | 'job:delete'
-  | 'job:open-folder'
-  | 'model:list'
-  | 'model:download'
-  | 'model:cancel-download'
-  | 'model:delete'
-  | 'model:set-default'
-  | 'settings:get'
-  | 'settings:set'
-  | 'app:open-folder'
-  | 'app:open-models-dir'
-  | 'app:get-models-dir'
-  | 'gpu:info'
-  | 'cpu:info'
-  | 'dialog:open-pdf'
-  | 'dialog:open-dir'
-
-/** Push event channels (main -> renderer) exposed via the preload listeners. */
-export type IpcEvent = 'job:updated' | 'model:updated' | 'app:log'
-
 /* ---- Renderer-facing API contract (window.api) ---- */
 
 export interface JobApi {
