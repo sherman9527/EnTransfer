@@ -100,9 +100,10 @@ export class JobManager {
 
   // ------------------------------------------------------------------ catalog
 
-  /** Newest-first list of all jobs (renderer display order). */
+  /** Oldest-first list of all jobs (renderer display order: FIFO — the job that
+   * entered the queue first stays on top, newly-added tasks append to the back). */
   async list(): Promise<TranslationJob[]> {
-    return [...this.jobs.values()].reverse()
+    return [...this.jobs.values()]
   }
 
   private queueSave(): void {

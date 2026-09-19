@@ -136,9 +136,11 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 function upsertJob(job: TranslationJob): void {
   useQueueStore.setState((s) => {
     const exists = s.jobs.some((j) => j.id === job.id)
+    // FIFO display: update in place, or append a new job to the BACK so the
+    // in-progress/first task stays on top and freshly-added tasks go below.
     const jobs = exists
       ? s.jobs.map((j) => (j.id === job.id ? job : j))
-      : [job, ...s.jobs]
+      : [...s.jobs, job]
     return { jobs }
   })
 }
