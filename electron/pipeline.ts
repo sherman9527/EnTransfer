@@ -28,12 +28,15 @@ import { captureFlow, type ContentBlock } from './pdf/capture/flow'
 import { typesetFlow } from './pdf/typeset/flow'
 import { blocksToHtml } from './pdf/typeset/htmlFlow'
 import { printHtmlToPdf } from './pdf/typeset/chromiumPrint'
+import { validateModelOutput, validateRestored } from './pdf/validate'
+import { TranslationCache } from './models/translation-cache'
 import { freezeProtected, restorePlaceholders } from './pdf'
 import { expandAbbreviations } from './pdf/capture/glossary'
 import type { ModelManager } from './models/manager'
 
 /** The narrow engine surface this module depends on. */
 interface PipelineEngine {
+  readonly id?: string
   translate(
     text: string,
     options?: { signal?: AbortSignal }
@@ -64,17 +67,6 @@ export function resolveFontPath(): string {
   ]
   for (const p of candidates) if (existsSync(p)) return p
   return candidates[0]
-}
-
-/**
- * Heuristic "did the model give us a sane translation?".
- */
-function translationLooksSane(source: string, translated: string): boolean {
-  const src = source.trim()
-  const out = translated.trim()
-  if (out.length === 0) return false
-  if (src.length === 0) return true
-  return out.length >= src.length * 0.1 && out.length <= src.length * 5
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +147,8 @@ export function createPipeline(
   options: PipelineOptions = {}
 ): TranslationPipeline {
   const checkpoint = new CheckpointStore(jobsDir)
+  const cache = new TranslationCache(path.join(jobsDir, '..', 'translations'))
+  const cacheStats = { cacheHits: 0 }
   const pageLimit = options.pageLimit && options.pageLimit > 0 ? options.pageLimit : undefined
 
   return {
@@ -257,6 +251,17 @@ export function createPipeline(
       }
       let batchHits = 0
       let batchFalls = 0
+      const fallbacks: Array<{ unit: string; page: number; reasons: string[] }> = []
+      const noteFallback = (t: TransTask, r: TranslateAttempt): void => {
+        if (!r.ok) fallbacks.push({ unit: t.id, page: t.page, reasons: r.reasons })
+      }
+      // Circuit breaker: a pathological run (bad model state, corrupted page
+      // storm) must stop early instead of quietly falling back for a whole book.
+      const checkBreaker = (): void => {
+        if (translatedCount >= 200 && fallbacks.length / translatedCount > 0.3) {
+          throw new Error(`翻译质量熔断：已处理 ${translatedCount} 单元，回退 ${fallbacks.length}（>30%），中止任务`)
+        }
+      }
 
       const saveProgress = async (): Promise<void> => {
         await checkpoint.save(job.id, {
@@ -309,28 +314,29 @@ export function createPipeline(
         if (batch.length >= 2) {
           // ---- Batch translate -------------------------------------------
           const joinedSource = numberJoin(batch.map((t) => t.sourceText))
-          let translated: string
+          let res: TranslateAttempt
           try {
-            translated = await translateText(engine, joinedSource, signal)
+            res = await translateText(engine, joinedSource, signal, cache, cacheStats)
           } catch (err) {
             if (signal.aborted) { await saveProgress(); return }
             throw err
           }
 
-          // Split the output by line numbers. If the model broke the format,
-          // fall back to individual translation.
-          const parts = numberSplit(translated, batch.length)
+          // Split the output by line numbers. Format breakage OR a failed
+          // batch-level validation falls back to individual translation.
+          const parts = res.ok ? numberSplit(res.text, batch.length) : null
           if (parts === null) {
-            // Numbered format not preserved — fall back to individual translations.
             batchFalls++
             for (const t of batch) {
               if (signal.aborted) { await saveProgress(); return }
-              const ind = await translateText(engine, t.sourceText, signal)
-              writeBack(blocks, t, ind)
-              await checkpoint.appendTranslation(job.id, t.id, ind)
+              const one = await translateText(engine, t.sourceText, signal, cache, cacheStats)
+              noteFallback(t, one)
+              writeBack(blocks, t, one.text)
+              await checkpoint.appendTranslation(job.id, t.id, one.text)
               translatedCount++
               if (t.page > currentPage) { currentPage = t.page; job.currentPage = currentPage }
               onProgress(currentPage, clamp100(5 + (translatedCount / Math.max(1, total)) * 85))
+              checkBreaker()
             }
           } else {
             batchHits++
@@ -341,29 +347,43 @@ export function createPipeline(
               if (batch[k].page > currentPage) { currentPage = batch[k].page; job.currentPage = currentPage }
             }
             onProgress(currentPage, clamp100(5 + (translatedCount / Math.max(1, total)) * 85))
+            checkBreaker()
           }
           taskIdx = bi
         } else {
           // ---- Single translate (long paragraph) -------------------------
-          let translated: string
+          let res: TranslateAttempt
           try {
-            translated = await translateText(engine, task.sourceText, signal)
+            res = await translateText(engine, task.sourceText, signal, cache, cacheStats)
           } catch (err) {
             if (signal.aborted) { await saveProgress(); return }
             throw err
           }
-          writeBack(blocks, task, translated)
-          await checkpoint.appendTranslation(job.id, task.id, translated)
+          noteFallback(task, res)
+          writeBack(blocks, task, res.text)
+          await checkpoint.appendTranslation(job.id, task.id, res.text)
           translatedCount++
           if (task.page > currentPage) {
             currentPage = task.page
             job.currentPage = currentPage
           }
           onProgress(currentPage, clamp100(5 + (translatedCount / Math.max(1, total)) * 85))
+          checkBreaker()
           taskIdx++
         }
       }
-      console.log(`[pipeline] prose batches: ${batchHits} ok / ${batchFalls} fell back to single`)
+      console.log(`[pipeline] prose batches: ${batchHits} ok / ${batchFalls} fell back to single; validation fallbacks: ${fallbacks.length}; cache hits: ${cacheStats.cacheHits}/${total}`)
+      if (fallbacks.length > 0) {
+        try {
+          await fsp.writeFile(
+            path.join(checkpoint.getJobDir(job.id), 'quality-report.jsonl'),
+            fallbacks.map((f) => JSON.stringify(f)).join('\n') + '\n',
+            'utf8'
+          )
+        } catch (err) {
+          console.warn('[pipeline] quality report write failed:', (err as Error).message)
+        }
+      }
 
       // ==================================================================
       // Phase 3 — typesetting (Chromium primary, pdf-lib fallback)
@@ -371,9 +391,10 @@ export function createPipeline(
       job.status = 'typesetting'
       onProgress(job.totalPages, 92)
       const t1 = Date.now()
+      const fallbackKeys = new Set(fallbacks.map((f) => f.unit))
       try {
         console.log('[pipeline] chromium compose+print starting...')
-        await printHtmlToPdf(blocksToHtml(blocks), job.outputPath)
+        await printHtmlToPdf(blocksToHtml(blocks, { fallbackKeys }), job.outputPath)
         console.log(`[pipeline] chromium typeset done in ${((Date.now() - t1) / 1000).toFixed(1)}s`)
       } catch (err) {
         console.warn(`[pipeline] chromium typeset failed (${(err as Error).message}); falling back to pdf-lib`)
@@ -407,33 +428,48 @@ export function createPipeline(
 }
 
 // ---------------------------------------------------------------------------
-// Translation helper (same as before: glossary → freeze → engine → restore)
+// Translation helper: glossary → freeze → engine → restore → VALIDATE.
+// Two-phase invariants (see pdf/validate.ts); one retry on failure; a unit
+// that still fails keeps its SOURCE text and is recorded for the quality
+// report + badge. Abort propagates to the caller's cooperative handling.
 // ---------------------------------------------------------------------------
+
+export interface TranslateAttempt {
+  text: string
+  ok: boolean
+  reasons: string[]
+}
+
+export const PROMPT_VERSION = 'p1-numbered'
 
 async function translateText(
   engine: PipelineEngine,
   source: string,
-  signal: AbortSignal
-): Promise<string> {
+  signal: AbortSignal,
+  cache: TranslationCache,
+  stats: { cacheHits: number }
+): Promise<TranslateAttempt> {
   const expanded = expandAbbreviations(source)
   const { text: masked, placeholders } = freezeProtected(expanded)
-
-  const attempt = async (): Promise<string> => {
+  const key = { modelId: engine.id ?? 'llama', promptVersion: PROMPT_VERSION, temperature: 0.1, source, masked }
+  const hash = TranslationCache.hashKey(key)
+  const hit = await cache.get(hash)
+  if (hit && validateRestored(source, hit.translated).ok) {
+    stats.cacheHits++
+    return { text: hit.translated, ok: true, reasons: [] }
+  }
+  let lastReasons: string[] = []
+  for (let attempt = 1; attempt <= 2; attempt++) {
     const res = await engine.translate(masked, { signal })
-    return restorePlaceholders(res.text, placeholders)
-  }
-
-  let out = await attempt()
-
-  if (!translationLooksSane(source, out)) {
-    try {
-      const retry = await attempt()
-      if (translationLooksSane(source, retry)) out = retry
-    } catch {
-      // Keep first attempt.
+    const raw = res.text
+    const vm = validateModelOutput(masked, raw)
+    const restored = restorePlaceholders(raw, placeholders).trim()
+    const vr = validateRestored(source, restored)
+    if (vm.ok && vr.ok) {
+      void cache.put(hash, restored, 0)
+      return { text: restored, ok: true, reasons: [] }
     }
+    lastReasons = [...vm.reasons, ...vr.reasons]
   }
-
-  if (!translationLooksSane(source, out)) return source
-  return out
+  return { text: source, ok: false, reasons: lastReasons }
 }

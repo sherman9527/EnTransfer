@@ -14,8 +14,8 @@ import type { ContentBlock } from '../capture/flow'
 import hljs from 'highlight.js/lib/common'
 
 export interface HtmlOptions {
-  /** Per-block fallback status from the translation stage (badges). */
-  blockStatus?: Map<string, 'translated' | 'fallback' | 'preserved'>
+  /** Unit ids whose translation failed validation and kept the source text. */
+  fallbackKeys?: Set<string>
   /** line-height override (product default 1.6, tighter than Qt's 1.75). */
   lineHeight?: number
 }
@@ -75,21 +75,28 @@ function buildTable(block: ContentBlock): string {
 
 export function blocksToHtml(blocks: ContentBlock[], opts: HtmlOptions = {}): string {
   const lh = opts.lineHeight ?? 1.6
+  const fb = opts.fallbackKeys
+  const cls = (key: string, base = ''): string => {
+    const c = base ? [base] : []
+    if (fb?.has(key)) c.push('source-fallback')
+    return c.length ? ` class="${c.join(' ')}"` : ''
+  }
   const parts: string[] = []
-  for (const b of blocks) {
+  for (let bi = 0; bi < blocks.length; bi++) {
+    const b = blocks[bi]
     switch (b.type) {
       case 'heading': {
         const lv = Math.min(4, Math.max(1, b.level ?? 4))
         const chapter = CHAPTER_RE.test((b.text ?? '').trim())
-        parts.push(`<h${lv}${chapter ? ' class="chapter-heading"' : ''}>${esc(b.text ?? '')}</h${lv}>`)
+        parts.push(`<h${lv}${cls(`b${bi}`, chapter ? 'chapter-heading' : '')}>${esc(b.text ?? '')}</h${lv}>`)
         break
       }
       case 'paragraph':
-        if ((b.text ?? '').trim()) parts.push(`<p>${esc(b.text as string)}</p>`)
+        if ((b.text ?? '').trim()) parts.push(`<p${cls(`b${bi}`)}>${esc(b.text as string)}</p>`)
         break
       case 'list':
         if ((b.items ?? []).length > 0) {
-          parts.push(`<ul>${(b.items ?? []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`)
+          parts.push(`<ul>${(b.items ?? []).map((x, j) => `<li${cls(`b${bi}-${j}`)}>${esc(x)}</li>`).join('')}</ul>`)
         }
         break
       case 'code':
