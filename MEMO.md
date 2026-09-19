@@ -184,3 +184,18 @@ llama-engine.ts(TDZ/gpuLayers判断/spec开关/分句阈值/maxTokens钳制) reg
   本次端到端 PASS "zero residue"；verify 新增 R13/R13b 两项（38→40 项全绿）。
 - 顺带清掉开发期陈留 ~224MB（Roaming/entransfer 1.8M + entransfer-updater 126M+98M）。
 - AGENTS.md 增补见下。
+
+## 2026-09-19 下午：pdfzh 对照 + C1 检测器实测到回退（先测后采纪律的完整闭环）
+- 对照 pdfzh 设计（docs/PDFZH-COMPARE.md）：确认我们已领先 Typst/页数压缩(实测 0.555)/投机解码(−27%)；借鉴候选 C1-C5。
+- **C2 grammar 强制 JSON：否决**（吞吐 −12~−35%，失败率无优势，真失败是语义 id 错乱）。
+- **C3 logprob：搁置**（node-llama-cpp 3.20 公共 API 无 per-token logprob）。
+- **C5 乱码闸门：已落地**（R15，U+FFFD/PUA>20% 不进模型；+6 回归用例，套件 34→全绿）。
+- **zip 便携验证：通过**（解压即用，data/models 全落解压目录）。
+- **C1 图像召回（最大项，走完 检测→衬底→四层集成→实测→回退）**：
+  - 缺口定性：44 题注页仅 6 有位图、25 纯矢量；朴素几何 bbox 提取命中仅 8%（pdfjs 无 get_drawings）→ 否决启发式。
+  - 检测器：PP-DocLayout-S ONNX(4.7MB/Apache/CPU) 真图召回 **93.9% vs 现状 18.2%**，50ms/页。
+  - 衬底：ORT-web 在 Electron 渲染进程**硬崩溃**(−36861，复现代码留档)；改 **ORT-node(main)+@napi-rs/canvas** 跑通(0.2s，框与 Python 吻合)。
+  - 四层集成(detector/renderer/wiring/packaging)全绿，全书审计 9→61 图块/31s，安装包 97.5→116.6MB(+19，用户批准)。
+  - **但全书实测暴露非纯收益**：p57 纯矢量图页干净出图+去标签；**p55 样式化对比表被误判 image，区域文本过滤连带吃掉表格正文→内容丢失**（pdfzh 警告的 M4 无底洞，我们语料复现）。
+  - **决策：回退接线+打包**（有提升才导入/不回归），保留 detector/renderer 模块+单测+POC+数据为地基；原生依赖移 devDeps 不进包。verify 回 40、typecheck/build/regression 全绿。
+  - 后续（task #21）：区域文本排除只删短 label+保护表格；图/表判别加 IoU 保护；≥3 语料净收益验证后再上线。
