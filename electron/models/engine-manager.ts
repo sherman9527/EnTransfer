@@ -27,6 +27,11 @@ export class EngineManager {
   /** Set once an engine reports a mid-run hardware failure; sticky for the
    *  session so we never hand a crashed GPU runtime a second chance. */
   private forcedCpu = false
+  /** How many times a sick engine was rebuilt this session. A CPU rebuild
+   *  that keeps dying must surface as a job error, not reload forever. */
+  private sickRebuilds = 0
+  /** UI callback for engine-level notices (failover etc.), wired from main. */
+  onNotice: ((message: string) => void) | null = null
 
   /** Get (loading if needed) the engine for `modelId`. The returned engine is
    * already loaded and warm. Reloads automatically when `settings` change so
@@ -35,7 +40,13 @@ export class EngineManager {
    * rebuilt on CPU regardless of the requested device. */
   async getEngine(modelId: string, settings: InferenceSettings = {}): Promise<TranslationEngine> {
     if (this.engine?.isSick) {
+      this.sickRebuilds++
+      if (this.sickRebuilds > 3) {
+        console.error('[engine-manager] engine failed %d rebuilds in a row; surfacing error', this.sickRebuilds)
+        throw new Error('推理引擎连续异常（已重建 3 次仍失败），请检查设备或换 CPU 后重试本任务')
+      }
       console.warn('[engine-manager] engine reported hardware failure; rebuilding on CPU for the rest of the session')
+      this.onNotice?.('GPU 推理异常，已自动切换 CPU 继续翻译（速度下降，进度不受影响）')
       this.forcedCpu = true
       await this.unload()
       this.currentKey = null

@@ -31,6 +31,7 @@ export interface CacheEntry {
 export class TranslationCache {
   private readonly root: string
   private pending = new Map<string, Promise<void>>()
+  private putSeq = 0
 
   constructor(root: string) {
     this.root = root
@@ -66,7 +67,9 @@ export class TranslationCache {
       try {
         const file = this.pathFor(hash)
         await fsp.mkdir(dirname(file), { recursive: true })
-        const tmp = file + '.tmp'
+        // unique tmp name: two concurrent writers of the same hash (resume +
+        // fresh run) must not stomp on each other's temp file
+        const tmp = `${file}.${process.pid}.${(this.putSeq += 1)}.tmp`
         await fsp.writeFile(tmp, JSON.stringify(entry), 'utf8')
         await fsp.rename(tmp, file)
       } catch (err) {

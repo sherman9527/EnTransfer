@@ -27,15 +27,14 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// .scratch/bundle-engine.ts
-var bundle_engine_exports = {};
-__export(bundle_engine_exports, {
+// electron/models/llama-engine.ts
+var llama_engine_exports = {};
+__export(llama_engine_exports, {
   GENERIC_SYSTEM_PROMPT: () => GENERIC_SYSTEM_PROMPT,
+  HY_MT2_SYSTEM_PROMPT: () => HY_MT2_SYSTEM_PROMPT,
   LlamaCppEngine: () => LlamaCppEngine
 });
-module.exports = __toCommonJS(bundle_engine_exports);
-
-// electron/models/llama-engine.ts
+module.exports = __toCommonJS(llama_engine_exports);
 var import_node_os2 = __toESM(require("node:os"));
 
 // electron/models/llama-cpp-loader.ts
@@ -180,6 +179,13 @@ function getDefaultThreads(cpu) {
   }
   return clamp(cpu.performanceCores, 2, cpu.logicalCores);
 }
+
+// electron/models/engine-errors.ts
+var HARDWARE_ERROR_RE = /device\s*lost|vk_error|vulkan|out of memory|oom|allocation.*(fail|error)|cu(da|arses)?\s*error|ggml_(vk|cuda)|no (valid\s+)?device/i;
+function isHardwareError(message) {
+  return HARDWARE_ERROR_RE.test(message);
+}
+var SICK_ESCALATION_ERRORS = 3;
 
 // electron/models/llama-engine.ts
 var CONTEXT_SIZE = 2048;
@@ -414,6 +420,7 @@ ${text}
    *  VRAM OOM) marks this engine unfit; EngineManager then rebuilds it —
    * sticky — on CPU so the running job can continue. */
   sick = false;
+  consecErrors = 0;
   get isSick() {
     return this.sick;
   }
@@ -442,9 +449,14 @@ ${text}
         }
       });
     } catch (err) {
-      if (!options?.signal?.aborted) this.sick = true;
+      if (!options?.signal?.aborted) {
+        const msg = err?.message ?? String(err);
+        this.consecErrors++;
+        if (isHardwareError(msg) || this.consecErrors >= SICK_ESCALATION_ERRORS) this.sick = true;
+      }
       throw err;
     }
+    this.consecErrors = 0;
     const timeMs = Date.now() - t0;
     const tokens = model.tokenize(result.responseText, false).length;
     return {
@@ -459,15 +471,25 @@ ${text}
   tokenizeCount(text) {
     return this.model ? this.model.tokenize(text, false).length : 0;
   }
-  /** Release the loaded model and context. Safe to call repeatedly. */
+  /** Release the loaded model and context. Safe to call repeatedly.
+   *  dispose() on model/context is async in node-llama-cpp — awaiting here
+   *  prevents VRAM doubling when the manager rebuilds right after. */
   async dispose() {
-    this.session?.dispose();
+    const teardown = [];
+    const session = this.session;
     this.session = null;
-    this.context?.dispose();
+    if (session) teardown.push(Promise.resolve(session.dispose()).catch(() => {
+    }));
+    const ctx = this.context;
     this.context = null;
-    this.model?.dispose();
+    if (ctx) teardown.push(Promise.resolve(ctx.dispose()).catch(() => {
+    }));
+    const model = this.model;
     this.model = null;
+    if (model) teardown.push(Promise.resolve(model.dispose()).catch(() => {
+    }));
     this.loadedPath = "";
+    await Promise.allSettled(teardown);
   }
   /** Interface alias for {@link dispose}. */
   async unload() {
@@ -477,5 +499,6 @@ ${text}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   GENERIC_SYSTEM_PROMPT,
+  HY_MT2_SYSTEM_PROMPT,
   LlamaCppEngine
 });

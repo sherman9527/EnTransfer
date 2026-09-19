@@ -27,17 +27,16 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// .scratch/bundle-pipeline.ts
-var bundle_pipeline_exports = {};
-__export(bundle_pipeline_exports, {
-  createPipeline: () => createPipeline
-});
-module.exports = __toCommonJS(bundle_pipeline_exports);
-
 // electron/pipeline.ts
+var pipeline_exports = {};
+__export(pipeline_exports, {
+  PROMPT_VERSION: () => PROMPT_VERSION,
+  createPipeline: () => createPipeline,
+  resolveFontPath: () => resolveFontPath
+});
+module.exports = __toCommonJS(pipeline_exports);
 var import_node_fs4 = require("node:fs");
 var import_node_path4 = __toESM(require("node:path"));
-var import_node_fs5 = require("node:fs");
 var import_electron = require("electron");
 
 // electron/queue/checkpoint.ts
@@ -1593,9 +1592,16 @@ function highlightedCode(code) {
     return { html: esc(code), lang: "" };
   }
 }
+var IMAGE_MIME = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif"
+};
 function dataUri(block) {
   if (!block.imageData || block.imageData.length === 0) return null;
-  const mime = block.imageFormat === "png" ? "image/png" : "image/jpeg";
+  const mime = IMAGE_MIME[(block.imageFormat ?? "jpeg").toLowerCase()] ?? "image/jpeg";
   const base64 = Buffer.from(block.imageData.buffer, block.imageData.byteOffset, block.imageData.byteLength).toString("base64");
   return `data:${mime};base64,${base64}`;
 }
@@ -1711,17 +1717,28 @@ var import_node_fs2 = require("node:fs");
 var import_node_os = require("node:os");
 var import_node_path2 = require("node:path");
 var PRINT_TIMEOUT_MS = 9e4;
-async function printHtmlToPdf(html, outPath) {
+async function printHtmlToPdf(html, outPath, workTmpDir) {
   const electronVer = process.versions.electron;
   if (!electronVer) throw new Error("chromiumPrint: not running inside Electron");
   const { BrowserWindow } = require("electron");
-  const file = (0, import_node_path2.join)((0, import_node_os.tmpdir)(), `entransfer-compose-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
-  await import_node_fs2.promises.writeFile(file, html, "utf8");
+  const dir = workTmpDir ?? (0, import_node_os.tmpdir)();
+  await import_node_fs2.promises.mkdir(dir, { recursive: true });
+  const file = (0, import_node_path2.join)(dir, `entransfer-compose-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
   let win = null;
   try {
+    await import_node_fs2.promises.writeFile(file, html, "utf8");
     win = new BrowserWindow({ show: false, width: 794, height: 1123, webPreferences: { sandbox: true, backgroundThrottling: false } });
     await win.loadFile(file);
-    await new Promise((r) => setTimeout(r, 500));
+    await withTimeout(
+      win.webContents.executeJavaScript(`(async () => {
+        await document.fonts.ready
+        await Promise.all(Array.from(document.images, (img) => img.decode().catch(() => {})))
+        return true
+      })()`),
+      15e3,
+      "page settle timeout"
+    ).catch((err) => console.warn("[chromiumPrint] settle wait degraded:", err.message));
+    await new Promise((r) => setTimeout(r, 120));
     const data = await withTimeout(
       win.webContents.printToPDF({
         printBackground: true,
@@ -1772,16 +1789,21 @@ function validateModelOutput(masked, raw) {
   const reasons = [];
   if (raw.trim().length === 0) return fail("empty");
   const want = matches(masked, SENTINEL_RE);
-  if (want.length > 0) {
+  const got = matches(raw, SENTINEL_RE);
+  if (want.length > 0 || got.length > 0) {
     const counts = /* @__PURE__ */ new Map();
-    for (const t of matches(raw, SENTINEL_RE)) counts.set(t, (counts.get(t) ?? 0) + 1);
-    const missing = [];
-    for (const t of want) {
-      const c = (counts.get(t) ?? 0) - 1;
-      if (c < 0) missing.push(t);
-      else counts.set(t, c);
+    for (const t of want) counts.set(t, (counts.get(t) ?? 0) + 1);
+    const extraSeen = /* @__PURE__ */ new Map();
+    for (const t of got) {
+      const c = counts.get(t) ?? 0;
+      if (c > 0) counts.set(t, c - 1);
+      else extraSeen.set(t, (extraSeen.get(t) ?? 0) + 1);
     }
+    const missing = [];
+    for (const [t, c] of counts) if (c > 0) missing.push(t);
     if (missing.length > 0) reasons.push(`sentinel-lost:${missing.join("")}`);
+    const extra = [...extraSeen.keys()];
+    if (extra.length > 0) reasons.push(`sentinel-extra:${extra.join("")}`);
   }
   return reasons.length ? fail(...reasons) : { ok: true, reasons: [] };
 }
@@ -1790,8 +1812,7 @@ function validateRestored(source, restored) {
   const src = source.trim();
   const out = restored.trim();
   if (out.length === 0) return fail("empty");
-  if (SENTINEL_RE.test(out)) reasons.push("sentinel-leak");
-  SENTINEL_RE.lastIndex = 0;
+  if (/§[A-Z]§/.test(out)) reasons.push("sentinel-leak");
   const translatable = matches(src, LATIN_WORD_RE).length >= 4 || src.length > 60;
   if (translatable && (out === src || src.length > 40 && norm(out) === norm(src))) reasons.push("echo");
   if (!CJK_RE.test(out) && out.length > 100 && matches(out, LATIN_WORD_RE).length >= 3) {
@@ -1801,8 +1822,11 @@ function validateRestored(source, restored) {
   if (srcNums.length > 0) {
     const outNums = new Set(matches(out, NUMBER_RE).flatMap((n) => [n, n.replace(/[.,]/g, "")]));
     const dropped = srcNums.filter((n) => !outNums.has(n) && !outNums.has(n.replace(/[.,]/g, "")));
-    const magnitudeRewrite = CJK_RE.test(out) && /万|亿|千|[KMBT]\b|百分/.test(out);
-    const tolerance = !CJK_RE.test(out) ? 0 : magnitudeRewrite ? srcNums.length : 1;
+    const roundRewrite = dropped.length > 1 && CJK_RE.test(out) && /万|亿|千|[KMBT]\b|百分/.test(out) && dropped.every((n) => {
+      const v = Number(n.replace(/[.,]/g, ""));
+      return Number.isFinite(v) && v >= 1e3 && v % 1e3 === 0;
+    });
+    const tolerance = !CJK_RE.test(out) ? 0 : roundRewrite ? dropped.length : 1;
     if (dropped.length > tolerance) reasons.push(`number-dropped:${dropped.slice(0, 4).join(",")}`);
   }
   if (src.length > 0) {
@@ -1823,6 +1847,7 @@ var import_node_path3 = require("node:path");
 var TranslationCache = class {
   root;
   pending = /* @__PURE__ */ new Map();
+  putSeq = 0;
   constructor(root) {
     this.root = root;
   }
@@ -1850,7 +1875,7 @@ var TranslationCache = class {
       try {
         const file = this.pathFor(hash);
         await import_node_fs3.promises.mkdir((0, import_node_path3.dirname)(file), { recursive: true });
-        const tmp = file + ".tmp";
+        const tmp = `${file}.${process.pid}.${this.putSeq += 1}.tmp`;
         await import_node_fs3.promises.writeFile(tmp, JSON.stringify(entry), "utf8");
         await import_node_fs3.promises.rename(tmp, file);
       } catch (err) {
@@ -1947,18 +1972,41 @@ function expandAbbreviations(text) {
   return text.replace(pattern, (match) => GLOSSARY[match] ?? match);
 }
 
+// electron/batch-format.ts
+function joinBatch(texts) {
+  return texts.map((t, i) => `${i + 1}. ${t}`).join("\n");
+}
+function splitBatch(out, n) {
+  const map = /* @__PURE__ */ new Map();
+  let last = null;
+  for (const line of out.split("\n")) {
+    const m = /^\s*(\d+)\s*[.、)．]\s*(.*)$/.exec(line);
+    if (m) {
+      const idx = Number(m[1]);
+      if (idx >= 1 && idx <= n && !map.has(idx)) {
+        map.set(idx, [m[2].trim()]);
+        last = idx;
+      } else if (last !== null && m[2].trim()) {
+        map.get(last).push(m[2].trim());
+      } else {
+        last = null;
+      }
+    } else if (last !== null && line.trim()) {
+      map.get(last).push(line.trim());
+    }
+  }
+  if (map.size !== n) return null;
+  const parts = Array.from({ length: n }, (_, i) => map.get(i + 1).join(" ").trim());
+  return parts.every((p) => p.length > 0) ? parts : null;
+}
+
 // electron/pipeline.ts
 function clamp100(n) {
   return Math.max(0, Math.min(100, Number.isFinite(n) ? n : 0));
 }
 function resolveFontPath() {
   const appRoot = import_electron.app?.getAppPath?.() ?? process.cwd();
-  const candidates = [
-    import_node_path4.default.join(appRoot, "assets", "fonts", "MicrosoftYaHei-Regular-subset.ttf"),
-    import_node_path4.default.join(appRoot, "assets", "fonts", "NotoSansSC-Subset.ttf")
-  ];
-  for (const p of candidates) if ((0, import_node_fs5.existsSync)(p)) return p;
-  return candidates[0];
+  return import_node_path4.default.join(appRoot, "assets", "fonts", "MicrosoftYaHei-Regular-subset.ttf");
 }
 function buildTasks(blocks) {
   const tasks = [];
@@ -1988,10 +2036,6 @@ function writeBack(blocks, task, translated) {
   if (task.listIndex !== void 0) {
     if (block.items) {
       block.items[task.listIndex] = translated;
-    }
-  } else if (task.cellRow !== void 0 && task.cellCol !== void 0) {
-    if (block.cells) {
-      block.cells[task.cellRow][task.cellCol] = translated;
     }
   } else {
     block.text = translated;
@@ -2060,38 +2104,16 @@ function createPipeline(modelManager, jobsDir, options = {}) {
       }
       const BATCH_SIZE = 4;
       const SHORT_MAX_CHARS = 250;
-      const numberJoin = (ts) => ts.map((t, i) => `${i + 1}. ${t}`).join("\n");
-      const numberSplit = (out, n) => {
-        const map = /* @__PURE__ */ new Map();
-        let last = null;
-        for (const line of out.split("\n")) {
-          const m = /^\s*(\d+)\s*[.、)．]\s*(.*)$/.exec(line);
-          if (m) {
-            const idx = Number(m[1]);
-            if (idx >= 1 && idx <= n && !map.has(idx)) {
-              map.set(idx, [m[2].trim()]);
-              last = idx;
-            } else if (last !== null && m[2].trim()) {
-              map.get(last).push(m[2].trim());
-            } else {
-              last = null;
-            }
-          } else if (last !== null && line.trim()) {
-            map.get(last).push(line.trim());
-          }
-        }
-        if (map.size !== n) return null;
-        return Array.from({ length: n }, (_, i) => map.get(i + 1).join(" ").trim());
-      };
       let batchHits = 0;
       let batchFalls = 0;
       const fallbacks = [];
       const noteFallback = (t, r) => {
         if (!r.ok) fallbacks.push({ unit: t.id, page: t.page, reasons: r.reasons });
       };
+      let breakerMsg = null;
       const checkBreaker = () => {
-        if (translatedCount >= 200 && fallbacks.length / translatedCount > 0.3) {
-          throw new Error(`\u7FFB\u8BD1\u8D28\u91CF\u7194\u65AD\uFF1A\u5DF2\u5904\u7406 ${translatedCount} \u5355\u5143\uFF0C\u56DE\u9000 ${fallbacks.length}\uFF08>30%\uFF09\uFF0C\u4E2D\u6B62\u4EFB\u52A1`);
+        if (breakerMsg === null && translatedCount >= 200 && fallbacks.length / translatedCount > 0.3) {
+          breakerMsg = `\u7FFB\u8BD1\u8D28\u91CF\u7194\u65AD\uFF1A\u5DF2\u5904\u7406 ${translatedCount} \u5355\u5143\uFF0C\u56DE\u9000 ${fallbacks.length}\uFF08>30%\uFF09\uFF0C\u4E2D\u6B62\u4EFB\u52A1`;
         }
       };
       const translateUnit = async (text) => {
@@ -2120,6 +2142,7 @@ function createPipeline(modelManager, jobsDir, options = {}) {
           await saveProgress();
           return;
         }
+        if (breakerMsg !== null) break;
         if (recovered.has(task.id)) {
           taskIdx++;
           continue;
@@ -2133,7 +2156,7 @@ function createPipeline(modelManager, jobsDir, options = {}) {
           bi++;
         }
         if (batch.length >= 2) {
-          const joinedSource = numberJoin(batch.map((t) => t.sourceText));
+          const joinedSource = joinBatch(batch.map((t) => t.sourceText));
           let res;
           try {
             res = await translateUnit(joinedSource);
@@ -2144,7 +2167,7 @@ function createPipeline(modelManager, jobsDir, options = {}) {
             }
             throw err;
           }
-          const parts = res.ok ? numberSplit(res.text, batch.length) : null;
+          const parts = res.ok ? splitBatch(res.text, batch.length) : null;
           if (parts === null) {
             batchFalls++;
             for (const t of batch) {
@@ -2215,13 +2238,14 @@ function createPipeline(modelManager, jobsDir, options = {}) {
           console.warn("[pipeline] quality report write failed:", err.message);
         }
       }
+      if (breakerMsg !== null) throw new Error(breakerMsg);
       job.status = "typesetting";
       onProgress(job.totalPages, 92);
       const t1 = Date.now();
       const fallbackKeys = new Set(fallbacks.map((f) => f.unit));
       try {
         console.log("[pipeline] chromium compose+print starting...");
-        await printHtmlToPdf(blocksToHtml(blocks, { fallbackKeys }), job.outputPath);
+        await printHtmlToPdf(blocksToHtml(blocks, { fallbackKeys }), job.outputPath, import_node_path4.default.join(jobsDir, "..", "tmp"));
         console.log(`[pipeline] chromium typeset done in ${((Date.now() - t1) / 1e3).toFixed(1)}s`);
       } catch (err) {
         console.warn(`[pipeline] chromium typeset failed (${err.message}); falling back to pdf-lib`);
@@ -2252,7 +2276,7 @@ var PROMPT_VERSION = "p1-numbered";
 async function translateText(engine, source, signal, cache, stats) {
   const expanded = expandAbbreviations(source);
   const { text: masked, placeholders } = freezeProtected(expanded);
-  const key = { modelId: engine.id ?? "llama", promptVersion: PROMPT_VERSION, temperature: 0.1, source, masked };
+  const key = { modelId: engine.id ?? "llama", promptVersion: PROMPT_VERSION, temperature: engine.temperature ?? 0.1, source, masked };
   const hash = TranslationCache.hashKey(key);
   const hit = await cache.get(hash);
   if (hit && validateRestored(source, hit.translated).ok) {
@@ -2276,5 +2300,7 @@ async function translateText(engine, source, signal, cache, stats) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  createPipeline
+  PROMPT_VERSION,
+  createPipeline,
+  resolveFontPath
 });

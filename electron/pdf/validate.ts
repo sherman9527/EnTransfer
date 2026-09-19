@@ -36,16 +36,21 @@ export function validateModelOutput(masked: string, raw: string): ValidationOutc
   const reasons: string[] = []
   if (raw.trim().length === 0) return fail('empty')
   const want = matches(masked, SENTINEL_RE)
-  if (want.length > 0) {
+  const got = matches(raw, SENTINEL_RE)
+  if (want.length > 0 || got.length > 0) {
     const counts = new Map<string, number>()
-    for (const t of matches(raw, SENTINEL_RE)) counts.set(t, (counts.get(t) ?? 0) + 1)
-    const missing: string[] = []
-    for (const t of want) {
-      const c = (counts.get(t) ?? 0) - 1
-      if (c < 0) missing.push(t)
-      else counts.set(t, c)
+    for (const t of want) counts.set(t, (counts.get(t) ?? 0) + 1)
+    const extraSeen = new Map<string, number>()
+    for (const t of got) {
+      const c = counts.get(t) ?? 0
+      if (c > 0) counts.set(t, c - 1)
+      else extraSeen.set(t, (extraSeen.get(t) ?? 0) + 1)
     }
+    const missing: string[] = []
+    for (const [t, c] of counts) if (c > 0) missing.push(t)
     if (missing.length > 0) reasons.push(`sentinel-lost:${missing.join('')}`)
+    const extra = [...extraSeen.keys()]
+    if (extra.length > 0) reasons.push(`sentinel-extra:${extra.join('')}`)
   }
   return reasons.length ? fail(...reasons) : { ok: true, reasons: [] }
 }
@@ -61,8 +66,9 @@ export function validateRestored(
   if (out.length === 0) return fail('empty')
 
   // Residual sentinels after restore = lost mapping or hallucinated token.
-  if (SENTINEL_RE.test(out)) reasons.push('sentinel-leak')
-  SENTINEL_RE.lastIndex = 0
+  // (fresh non-global literal: the shared SENTINEL_RE is /g and .test would
+  //  mutate lastIndex)
+  if (/§[A-Z]§/.test(out)) reasons.push('sentinel-leak')
 
   // Echo: copied the source verbatim — but only a problem when the source
   // actually wanted translating (a sentence, not a preserved term/heading).
@@ -80,16 +86,27 @@ export function validateRestored(
   // Numeric integrity against the ORIGINAL source (restored sentinel values
   // have their numbers back), tolerating thousands-separator rewrites.
   // Calibration findings (E5 suite): Chinese legitimately rewrites magnitudes
-  // ($1M -> 100万, 250K -> 25万) which breaks exact digit matching; when the
-  // output is Chinese AND carries magnitude words, a full numeric mismatch is
-  // accepted. A single dropped number in Chinese output is also tolerated
+  // ($1M -> 100万, 250K -> 25万); a full mismatch is accepted only when every
+  // dropped number is a round thousand+ and the output carries magnitude words.
+  // A single dropped number in Chinese output is also tolerated
   // ("chapter 12" -> "第十二章"). Latin output must keep every number.
   const srcNums = matches(src, NUMBER_RE)
   if (srcNums.length > 0) {
     const outNums = new Set(matches(out, NUMBER_RE).flatMap((n) => [n, n.replace(/[.,]/g, '')]))
     const dropped = srcNums.filter((n) => !outNums.has(n) && !outNums.has(n.replace(/[.,]/g, '')))
-    const magnitudeRewrite = CJK_RE.test(out) && /万|亿|千|[KMBT]\b|百分/.test(out)
-    const tolerance = !CJK_RE.test(out) ? 0 : magnitudeRewrite ? srcNums.length : 1
+    // A magnitude rewrite is only assumed when EVERY dropped number is a round
+    // thousand+ (1000→1千, 250,000→25万) and the Chinese output actually
+    // carries magnitude words. Previously the mere presence of 万/亿 excused
+    // arbitrary number loss.
+    const roundRewrite =
+      dropped.length > 1 &&
+      CJK_RE.test(out) &&
+      /万|亿|千|[KMBT]\b|百分/.test(out) &&
+      dropped.every((n) => {
+        const v = Number(n.replace(/[.,]/g, ''))
+        return Number.isFinite(v) && v >= 1000 && v % 1000 === 0
+      })
+    const tolerance = !CJK_RE.test(out) ? 0 : roundRewrite ? dropped.length : 1
     if (dropped.length > tolerance) reasons.push(`number-dropped:${dropped.slice(0, 4).join(',')}`)
   }
 

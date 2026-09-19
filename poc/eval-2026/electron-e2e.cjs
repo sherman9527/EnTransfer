@@ -19,7 +19,7 @@ async function main() {
   const jobsDir = path.join(ROOT, '.scratch', 'electron-e2e-jobs')
   fs.rmSync(jobsDir, { recursive: true, force: true })
   fs.mkdirSync(jobsDir, { recursive: true })
-  const pipeline = createPipeline({ getEngine: async () => engine }, jobsDir, { pageLimit: 12 })
+  const pipeline = createPipeline({ getEngine: async () => engine }, jobsDir, { pageLimit: Number(process.env.E2E_PAGE_LIMIT ?? 400) })
   const out = path.join(ROOT, '.scratch', 'electron-e2e-zh.pdf')
   const job = {
     id: 'electron-e2e', inputPath: path.join(ROOT, 'Manning.Think.Like.a.Software.Engineering.Manager.2024.6.pdf'),

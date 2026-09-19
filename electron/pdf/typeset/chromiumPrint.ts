@@ -22,14 +22,24 @@ export async function printHtmlToPdf(html: string, outPath: string, workTmpDir?:
   const dir = workTmpDir ?? tmpdir()
   await fsp.mkdir(dir, { recursive: true })
   const file = join(dir, `entransfer-compose-${Date.now()}-${Math.random().toString(36).slice(2)}.html`)
-  await fsp.writeFile(file, html, 'utf8')
   let win: import('electron').BrowserWindow | null = null
   try {
+    await fsp.writeFile(file, html, 'utf8')
     win = new BrowserWindow({ show: false, width: 794, height: 1123, webPreferences: { sandbox: true, backgroundThrottling: false } })
-    await win.loadFile(file)
-    // images are data: URIs — they decode during load; a short grace period
-    // lets Chromium settle layout/fonts before pagination.
-    await new Promise((r) => setTimeout(r, 500))
+    await win.loadFile(file) // resolves on did-finish-load
+    // Pagination must not run before webfonts and data-URI images are decoded —
+    // otherwise images are dropped from printed pages. Await the real signals
+    // (bounded), not a fixed sleep.
+    await withTimeout(
+      win.webContents.executeJavaScript(`(async () => {
+        await document.fonts.ready
+        await Promise.all(Array.from(document.images, (img) => img.decode().catch(() => {})))
+        return true
+      })()`),
+      15_000,
+      'page settle timeout'
+    ).catch((err) => console.warn('[chromiumPrint] settle wait degraded:', (err as Error).message))
+    await new Promise((r) => setTimeout(r, 120)) // layout settle grace
     const data = await withTimeout(
       win.webContents.printToPDF({
         printBackground: true,

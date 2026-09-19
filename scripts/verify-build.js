@@ -155,6 +155,22 @@ for (const f of allSourceFiles) {
 }
 check('没有静态 require/import node-llama-cpp', !staticLlamaImport, '发现静态导入，应通过 llama-cpp-loader 动态 import')
 
+// ── 3g. 回归结构不变式（对应 docs/REGRESSION.md 的 R 编号）──
+{
+  const pipe = readText('electron/pipeline.ts')
+  check('R3 熔断 throw 位于 quality-report 写入之后', pipe.indexOf('quality-report.jsonl') !== -1 && pipe.indexOf('quality-report.jsonl') < pipe.indexOf('if (breakerMsg !== null) throw'), '顺序被改动：熔断将跳过质量报告')
+  check('R1 批解析走 splitBatch（拒空槽）', pipe.includes('splitBatch(res.text'), '批分割未用受测试的 splitBatch')
+  check('R2 缓存键使用引擎真实温度', pipe.includes('temperature: engine.temperature'), '缓存温度键疑似写死')
+  const eng = readText('electron/models/llama-engine.ts')
+  check('R5 dispose 等待异步释放', eng.includes('await Promise.allSettled'), 'dispose 未 await，重建时可能双份显存')
+  const mgr = readText('electron/models/engine-manager.ts')
+  check('R10 sick 重建有次数上限', mgr.includes('sickRebuilds > 3'), '缺少重建上限，故障引擎会无限重载')
+  const print = readText('electron/pdf/typeset/chromiumPrint.ts')
+  check('R11 打印前等 fonts/图片解码而非固定 sleep', print.includes('document.fonts.ready') && !print.includes('setTimeout(r, 500'), '固定 500ms 等待回归')
+  const html = readText('electron/pdf/typeset/htmlFlow.ts')
+  check('R12 data URI 覆盖 webp/gif MIME', html.includes('image/webp') && html.includes('image/gif'), '图片格式映射缺项')
+}
+
 // ── 4. 资源文件检查 ───────────────────────────────────
 console.log('\n[4] 资源文件 (assets/)')
 check('assets/fonts/MicrosoftYaHei-Regular-subset.ttf', fileExists('assets/fonts/MicrosoftYaHei-Regular-subset.ttf'))

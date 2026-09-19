@@ -29,6 +29,7 @@ import {
   type GpuInfo
 } from './gpu.ts'
 import { detectCpu, getDefaultThreads } from './cpu-info.ts'
+import { isHardwareError, SICK_ESCALATION_ERRORS } from './engine-errors.ts'
 
 /**
  * Default KV context size.
@@ -141,7 +142,7 @@ export class LlamaCppEngine {
   private loadPromise: Promise<void> | null = null
   private threads: number
   private contextSize: number
-  private readonly temperature: number
+  readonly temperature: number
   private readonly topK: number
   private readonly topP: number
   private readonly prefixCaching: boolean
@@ -364,6 +365,7 @@ export class LlamaCppEngine {
    *  VRAM OOM) marks this engine unfit; EngineManager then rebuilds it —
    * sticky — on CPU so the running job can continue. */
   private sick = false
+  private consecErrors = 0
   get isSick(): boolean {
     return this.sick
   }
@@ -400,12 +402,18 @@ export class LlamaCppEngine {
         }
       })
     } catch (err) {
-      // An abort is user intent; anything else (device lost, driver crash,
-      // VRAM OOM) means this runtime can no longer be trusted → let the
-      // manager rebuild it on CPU so the job can continue.
-      if (!options?.signal?.aborted) this.sick = true
+      // An abort is user intent. Hardware-class failures (device lost, Vulkan,
+      // VRAM OOM) mark this engine unfit → CPU failover. Other one-off errors
+      // don't; but 3 consecutive non-abort failures escalate regardless, so
+      // an unrecognised device-lost message still triggers the failover.
+      if (!options?.signal?.aborted) {
+        const msg = (err as Error)?.message ?? String(err)
+        this.consecErrors++
+        if (isHardwareError(msg) || this.consecErrors >= SICK_ESCALATION_ERRORS) this.sick = true
+      }
       throw err
     }
+    this.consecErrors = 0
     const timeMs = Date.now() - t0
     const tokens = model.tokenize(result.responseText, false).length
     return {
@@ -422,15 +430,22 @@ export class LlamaCppEngine {
     return this.model ? this.model.tokenize(text, false).length : 0
   }
 
-  /** Release the loaded model and context. Safe to call repeatedly. */
+  /** Release the loaded model and context. Safe to call repeatedly.
+   *  dispose() on model/context is async in node-llama-cpp — awaiting here
+   *  prevents VRAM doubling when the manager rebuilds right after. */
   async dispose(): Promise<void> {
-    this.session?.dispose()
+    const teardown: Array<Promise<unknown>> = []
+    const session = this.session
     this.session = null
-    this.context?.dispose()
+    if (session) teardown.push(Promise.resolve(session.dispose()).catch(() => {}))
+    const ctx = this.context
     this.context = null
-    this.model?.dispose()
+    if (ctx) teardown.push(Promise.resolve(ctx.dispose()).catch(() => {}))
+    const model = this.model
     this.model = null
+    if (model) teardown.push(Promise.resolve(model.dispose()).catch(() => {}))
     this.loadedPath = ''
+    await Promise.allSettled(teardown)
   }
 
   /** Interface alias for {@link dispose}. */

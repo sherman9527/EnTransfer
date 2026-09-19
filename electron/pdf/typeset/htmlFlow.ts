@@ -50,9 +50,17 @@ function highlightedCode(code: string): { html: string; lang: string } {
   }
 }
 
+const IMAGE_MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif'
+}
+
 function dataUri(block: ContentBlock): string | null {
   if (!block.imageData || block.imageData.length === 0) return null
-  const mime = block.imageFormat === 'png' ? 'image/png' : 'image/jpeg'
+  const mime = IMAGE_MIME[(block.imageFormat ?? 'jpeg').toLowerCase()] ?? 'image/jpeg'
   const base64 = Buffer.from(block.imageData.buffer, block.imageData.byteOffset, block.imageData.byteLength).toString('base64')
   return `data:${mime};base64,${base64}`
 }

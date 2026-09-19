@@ -18,7 +18,6 @@
 
 import { promises as fsp } from 'node:fs'
 import path from 'node:path'
-import { existsSync } from 'node:fs'
 import { app } from 'electron'
 import type { TranslationJob } from '../shared/types'
 import type { TranslationPipeline } from './queue/manager'
@@ -31,12 +30,15 @@ import { printHtmlToPdf } from './pdf/typeset/chromiumPrint'
 import { validateModelOutput, validateRestored } from './pdf/validate'
 import { TranslationCache } from './models/translation-cache'
 import { freezeProtected, restorePlaceholders } from './pdf'
+import { joinBatch, splitBatch } from './batch-format.ts'
 import { expandAbbreviations } from './pdf/capture/glossary'
 import type { ModelManager } from './models/manager'
 
 /** The narrow engine surface this module depends on. */
 interface PipelineEngine {
   readonly id?: string
+  /** actual sampling temperature — must key the translation cache */
+  readonly temperature?: number
   translate(
     text: string,
     options?: { signal?: AbortSignal }
@@ -61,12 +63,9 @@ function clamp100(n: number): number {
  */
 export function resolveFontPath(): string {
   const appRoot = app?.getAppPath?.() ?? process.cwd()
-  const candidates = [
-    path.join(appRoot, 'assets', 'fonts', 'MicrosoftYaHei-Regular-subset.ttf'),
-    path.join(appRoot, 'assets', 'fonts', 'NotoSansSC-Subset.ttf'),
-  ]
-  for (const p of candidates) if (existsSync(p)) return p
-  return candidates[0]
+  // NotoSansSC fallback dropped from packaging (-13 MB); YaHei subset is the
+  // single bundled CJK face for the pdf-lib path (Chromium uses system fonts).
+  return path.join(appRoot, 'assets', 'fonts', 'MicrosoftYaHei-Regular-subset.ttf')
 }
 
 // ---------------------------------------------------------------------------
@@ -83,9 +82,6 @@ interface TransTask {
   blockIndex: number
   /** For list blocks: which item (undefined for heading/paragraph). */
   listIndex?: number
-  /** For table blocks: [row, col] cell coordinates. */
-  cellRow?: number
-  cellCol?: number
   /** Source page number (for progress reporting). */
   page: number
 }
@@ -127,10 +123,6 @@ function writeBack(blocks: ContentBlock[], task: TransTask, translated: string):
   if (task.listIndex !== undefined) {
     if (block.items) {
       block.items[task.listIndex] = translated
-    }
-  } else if (task.cellRow !== undefined && task.cellCol !== undefined) {
-    if (block.cells) {
-      block.cells[task.cellRow][task.cellCol] = translated
     }
   } else {
     block.text = translated
@@ -230,35 +222,10 @@ export function createPipeline(
 
       // Batch translation: merge consecutive short paragraphs into one request
       // to amortize prompt-prefill overhead. Numbered lines ("1. x\n2. y") are
-      // used as the carrier format: measured 5% parse-failure vs 48% for the
-      // previous "\n---\n" delimiter (poc/speed-v3/batch-strategy.ts, n=80).
-      // Parsing maps BY NUMBER, so a model that reorders lines still resolves.
+      // used as the carrier format (see batch-format.ts; parser refuses empty
+      // slots so a truncated answer falls back instead of deleting a paragraph).
       const BATCH_SIZE = 4
       const SHORT_MAX_CHARS = 250
-      const numberJoin = (ts: string[]): string => ts.map((t, i) => `${i + 1}. ${t}`).join('\n')
-      const numberSplit = (out: string, n: number): string[] | null => {
-        const map = new Map<number, string[]>()
-        let last: number | null = null
-        for (const line of out.split('\n')) {
-          const m = /^\s*(\d+)\s*[.、)．]\s*(.*)$/.exec(line)
-          if (m) {
-            const idx = Number(m[1])
-            if (idx >= 1 && idx <= n && !map.has(idx)) {
-              map.set(idx, [m[2].trim()])
-              last = idx
-            } else if (last !== null && m[2].trim()) {
-              map.get(last)!.push(m[2].trim())
-            } else {
-              last = null
-            }
-          } else if (last !== null && line.trim()) {
-            // continuation line of the previous numbered item — keep, don't drop
-            map.get(last)!.push(line.trim())
-          }
-        }
-        if (map.size !== n) return null
-        return Array.from({ length: n }, (_, i) => (map.get(i + 1) as string[]).join(' ').trim())
-      }
       let batchHits = 0
       let batchFalls = 0
       const fallbacks: Array<{ unit: string; page: number; reasons: string[] }> = []
@@ -267,9 +234,12 @@ export function createPipeline(
       }
       // Circuit breaker: a pathological run (bad model state, corrupted page
       // storm) must stop early instead of quietly falling back for a whole book.
+      // The throw is deferred to AFTER the loop so the quality report still
+      // captures which units tripped it.
+      let breakerMsg: string | null = null
       const checkBreaker = (): void => {
-        if (translatedCount >= 200 && fallbacks.length / translatedCount > 0.3) {
-          throw new Error(`翻译质量熔断：已处理 ${translatedCount} 单元，回退 ${fallbacks.length}（>30%），中止任务`)
+        if (breakerMsg === null && translatedCount >= 200 && fallbacks.length / translatedCount > 0.3) {
+          breakerMsg = `翻译质量熔断：已处理 ${translatedCount} 单元，回退 ${fallbacks.length}（>30%），中止任务`
         }
       }
       // Runtime GPU→CPU failover (user requirement): a mid-generation engine
@@ -306,6 +276,8 @@ export function createPipeline(
           await saveProgress()
           return
         }
+        // Breaker tripped on an earlier unit: stop, report first, then fail.
+        if (breakerMsg !== null) break
 
         // Already translated in a previous run → skip.
         if (recovered.has(task.id)) {
@@ -337,7 +309,7 @@ export function createPipeline(
 
         if (batch.length >= 2) {
           // ---- Batch translate -------------------------------------------
-          const joinedSource = numberJoin(batch.map((t) => t.sourceText))
+          const joinedSource = joinBatch(batch.map((t) => t.sourceText))
           let res: TranslateAttempt
           try {
             res = await translateUnit(joinedSource)
@@ -346,9 +318,10 @@ export function createPipeline(
             throw err
           }
 
-          // Split the output by line numbers. Format breakage OR a failed
-          // batch-level validation falls back to individual translation.
-          const parts = res.ok ? numberSplit(res.text, batch.length) : null
+          // Split the output by line numbers. Format breakage, an empty numbered
+          // slot (splitBatch refuses those) OR a failed batch-level validation
+          // falls back to individual translation.
+          const parts = res.ok ? splitBatch(res.text, batch.length) : null
           if (parts === null) {
             batchFalls++
             for (const t of batch) {
@@ -408,6 +381,7 @@ export function createPipeline(
           console.warn('[pipeline] quality report write failed:', (err as Error).message)
         }
       }
+      if (breakerMsg !== null) throw new Error(breakerMsg)
 
       // ==================================================================
       // Phase 3 — typesetting (Chromium primary, pdf-lib fallback)
@@ -475,7 +449,7 @@ async function translateText(
 ): Promise<TranslateAttempt> {
   const expanded = expandAbbreviations(source)
   const { text: masked, placeholders } = freezeProtected(expanded)
-  const key = { modelId: engine.id ?? 'llama', promptVersion: PROMPT_VERSION, temperature: 0.1, source, masked }
+  const key = { modelId: engine.id ?? 'llama', promptVersion: PROMPT_VERSION, temperature: engine.temperature ?? 0.1, source, masked }
   const hash = TranslationCache.hashKey(key)
   const hit = await cache.get(hash)
   if (hit && validateRestored(source, hit.translated).ok) {
