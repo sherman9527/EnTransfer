@@ -11,7 +11,8 @@ import { freezeProtected, restorePlaceholders } from '../../electron/pdf'
 import { validateRestored, validateModelOutput } from '../../electron/pdf/validate'
 
 const ROOT = process.cwd()
-const MODEL = path.join(ROOT, 'models', 'Qwen3-1.7B-Q4_K_M.gguf')
+const MODEL = path.join(ROOT, 'models', process.env.QC_MODEL ?? 'Qwen3-1.7B-Q4_K_M.gguf')
+const CTX = Number(process.env.QC_CTX ?? 4096)
 
 interface Case {
   id: string
