@@ -209,3 +209,15 @@ llama-engine.ts(TDZ/gpuLayers判断/spec开关/分句阈值/maxTokens钳制) reg
   - 打包：onnxruntime-node/@napi-rs/canvas 转正式依赖 + asarUnpack + 排除非 win32-x64 + after-pack 剪 GPU dll(~36MB)；**canvas-stub 改 re-export @napi-rs/canvas**（修 pdfjs 离屏画布崩溃，之前空桩会让部分页渲染崩）；CAPTURE_VERSION→3。
   - verify 40 绿、regression 绿。dist 体积 + install-drill 收尾中。
 - 诚实标注：仅 Manning 一份语料验证；保守门设计安全（低 ink + 表格保护），但多语料目视 sweep 仍建议。
+
+## 2026-09-19 夜：MiniCPM5 实测 + few-shot 否决 + 交付 exe
+- **ModelScope 远快于 HF**（39MB/s vs ~1MB/s）：MiniCPM5-2B-Q4 40s 下完。以后模型下载优先 ModelScope。
+- **MiniCPM5-2B head-to-head（用户点名要测，之前我未亲自测过，如实说明）**：
+  - 质量更好：修了 Qwen3 的 team→球队/manager→教练 领域错；25/26（仅 range 挂）；原生 128K 上下文；开放训练数据。
+  - 但**在我们栈上 3.5 tok/s**（Qwen3 53.5）。实测确认**两者都 100% GPU 卸载**（29/29、43/43 层），MiniCPM CPU 仅 1–2 tok/s → **GPU 只快 2×**：Vulkan 后端对 MiniCPM5 架构无高效内核（GQA/大词表/128K RoPE 在 Pascal 上逐层退化）。
+  - 拓展性：官方提速是 **DSpark 草稿 + SGLang 投机解码（不是 MTP）**，需现代 CUDA + SGLang，我们内嵌 node-llama-cpp 用不了。→ **换栈（云/CUDA+SGLang）时 MiniCPM5 是明显升级；现栈仍 Qwen3-1.7B-Q4。**
+- **few-shot A/B（零风险尝试）→ 否决**：领域消歧范例修好 team/manager，但 quality-cases 26→25（坏 range）+ 慢 17%。净负 → 不采纳。领域多义词正解是 LoRA。
+- **KV q8_0**：仅省显存非增益，暂不启用。
+- **mono 字体兜底修复 R16** + verify 加 3 项守卫（现 43 项）。
+- **第二语料 Delta Lake 验证 C1 保守门无回归**（30 页冷跑 201 单元、1.5% 回退、0 假阳图）。
+- 交付：gate 全绿 → dist 出 exe（含 C1 图召回 + 全部修复）。LoRA 微调管线待用户英文 PDF。
