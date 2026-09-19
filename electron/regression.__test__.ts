@@ -19,6 +19,7 @@ import { isGarbageText, garbageRatio } from './text-garbage.ts'
 import { validateModelOutput, validateRestored } from './pdf/validate.ts'
 import { TranslationCache } from './models/translation-cache.ts'
 import { isHardwareError } from './models/engine-errors.ts'
+import { joinFragments, isRunningFurniture } from './pdf/capture/line-utils.ts'
 
 let failures = 0
 function check(name: string, cond: boolean): void {
@@ -156,6 +157,36 @@ console.log('R15 garbage filter: undecodable-font gate')
   check('normal prose → NOT garbage', !isGarbageText('Agile teams iterate on working software and gather feedback every sprint.'))
   check('empty/whitespace → NOT garbage (handled upstream)', !isGarbageText('   '))
   check('ratio is bounded 0..1', garbageRatio('\uFFFD\uFFFD') <= 1 && garbageRatio('abc') >= 0)
+}
+
+// R17 — word-breaking / space corruption (gap analysis #1): join fragments by
+// real horizontal gap, not by embedded spaces. "The"+"Data" (word gap) must get
+// a space; "Generat"+"ed" (kerning split, no gap) must NOT.
+console.log('R17 fragment join: geometry-based spacing')
+{
+  const fs = 10
+  // word boundary: "The"@0 w20 -> end20, "Data"@26 -> gap 6 > 1.8 -> space
+  check('word gap -> space', joinFragments([{ str: 'The', x: 0, width: 20 }, { str: 'Data', x: 26, width: 24 }], fs) === 'The Data')
+  // kerning split: "Generat"@0 w40 -> end40, "ed"@41 -> gap 1 < 1.8 -> no space
+  check('kerning split -> no space', joinFragments([{ str: 'Generat', x: 0, width: 40 }, { str: 'ed', x: 41, width: 8 }], fs) === 'Generated')
+  // phantom space inside an item string must be re-derived, not trusted blindly
+  check('embedded space w/o gap -> removed', joinFragments([{ str: 'Column ', x: 0, width: 30 }, { str: 's', x: 31, width: 4 }], fs) === 'Columns')
+  // single clean item passes through unchanged
+  check('single item unchanged', joinFragments([{ str: 'lakehouse architecture', x: 0, width: 100 }], fs) === 'lakehouse architecture')
+}
+
+// R18 — running header/footer leak (gap analysis #2): the O'Reilly
+// "<num> | <title>" footer sitting ~7% from the bottom edge must be dropped,
+// including the glued "数据仓库|5" variant; ordinary prose with a "|" must not.
+console.log('R18 running furniture detection')
+{
+  const H = 612
+  check('footer "16 | Chapter 1: …" near bottom -> furniture', isRunningFurniture('16 | Chapter 1: The Evolution of Data Architectures', 42, H))
+  check('glued "数据仓库|5" near bottom -> furniture', isRunningFurniture('数据仓库|5', 40, H))
+  check('leading-num "6|第一章…" near bottom -> furniture', isRunningFurniture('6|第一章：数据架构的演变', 30, H))
+  check('lone page number -> furniture', isRunningFurniture('16', 42, H))
+  check('mid-page prose with a pipe -> NOT furniture', !isRunningFurniture('the value is x | y in this sentence about data', 300, H))
+  check('real body paragraph -> NOT furniture', !isRunningFurniture('lakehouses leverage low-cost object stores like Amazon S3', 214, H))
 }
 
 // ---------------------------------------------------------------------------

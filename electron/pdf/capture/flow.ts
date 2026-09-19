@@ -24,6 +24,7 @@ import * as zlib from 'node:zlib'
 import * as pdfjsNamespace from 'pdfjs-dist/legacy/build/pdf.js'
 import { LayoutDetector } from './layout-detector'
 import { renderForDetect, renderClip, disposeRenderer } from './page-renderer'
+import { joinFragments, isRunningFurniture } from './line-utils'
 import {
   PDFDocument,
   PDFName,
@@ -89,7 +90,7 @@ export interface FlowCaptureResult {
  * id-keyed translations from a differently-shaped capture — block ids are
  * positional, so a shifted stream would silently misassign text.
  */
-export const CAPTURE_VERSION = 3
+export const CAPTURE_VERSION = 4
 
 // ---------------------------------------------------------------------------
 // Internal types
@@ -164,11 +165,6 @@ const LIST_BULLET_RE = /^\s*[•●▪◦■▪◦*\-–—―·•]\s*/
 /** A line whose only content is a bullet marker (its text lives on the next line). */
 const BULLET_ONLY_RE = /^\s*[•●▪◦■▪◦*\-–—―·•]+\s*$/
 
-/** Page number: pure 1鈥? digit Arabic string. */
-const PAGE_NUM_RE = /^\s*\d{1,4}\s*$/
-/** Page number: pure Roman-numeral string (front matter: i, ii, iii, iv, ...). */
-const ROMAN_NUM_RE = /^\s*[ivxlcdmIVXLCDM]{1,6}\s*$/
-
 /** TOC dot-leader line: "Title .......... 123" (three+ dots then a page number). */
 const TOC_DOT_LEADER_RE = /\.{3,}\s*\d+\s*$/
 /**
@@ -185,9 +181,10 @@ const TOC_SECTION_START_RE = /^\s*\d+(?:\.\d+){0,2}\s*[A-Z"']/
 /** TOC title words. */
 const TOC_TITLE_RE = /^(?:brief\s+contents|contents|table\s+of\s+contents)\s*$/i
 
-/** How close to the top/bottom edge counts as header/footer (fraction of page). */
-const HEADER_BAND = 0.06
-const FOOTER_BAND = 0.06
+/** How close to the top/bottom edge counts as header/footer (fraction of page).
+ * O'Reilly running feet sit ~7% from the edge, so 0.06 was too tight (gap #2). */
+const HEADER_BAND = 0.09
+const FOOTER_BAND = 0.09
 
 /**
  * Merge lines into paragraphs when the vertical gap is small and the font size
@@ -1205,10 +1202,10 @@ export async function captureFlow(
       // Step 1: raw items 鈫?lines (group by baseline).
       const linesOnPage = groupItemsIntoLines(textContent.items, pageNumber, viewport.width, pageHeight)
 
-      // Step 2: drop header/footer band text and pure page numbers (Arabic + Roman).
+      // Step 2: drop header/footer band text, running "<num>|<title>" heads,
+      // and pure page numbers (Arabic + Roman).
       const filtered = linesOnPage.filter((l) => {
-        const t = l.text.trim()
-        if (PAGE_NUM_RE.test(t) || ROMAN_NUM_RE.test(t)) return false
+        if (isRunningFurniture(l.text, l.y, l.pageHeight)) return false
         if (isInHeaderBand(l) || isInFooterBand(l)) return false
         return true
       })
@@ -1352,10 +1349,16 @@ export async function captureFlow(
       const stripped = stripBleedingPageNumbers(
         para.text.replace(LIST_NUMBERED_RE, '').replace(LIST_BULLET_RE, '')
       )
-      if (stripped.length > 0) {
-        pendingList.push(stripped)
-        pendingListPage = para.page
-        pendingListTopY = para.topY
+      // Two list items can share one visual line (side-by-side bullets in a
+      // short "advantages" list): split on an embedded mid-line bullet marker so
+      // each becomes its own item instead of "• item1 • item2" on one line (#5).
+      const parts = stripped.split(/\s+[•●▪◦■]\s+/).map((p) => p.trim()).filter((p) => p.length > 0)
+      for (const part of parts.length ? parts : [stripped]) {
+        if (part.length > 0) {
+          pendingList.push(part)
+          pendingListPage = para.page
+          pendingListTopY = para.topY
+        }
       }
     } else if (kind === 'formula') {
       // Formula: pass through verbatim (pipeline skips translation).
@@ -1492,12 +1495,15 @@ export async function captureFlow(
  */
 function dropRepeatedEdgeText(lines: RawLine[], pageCount: number): RawLine[] {
   if (pageCount < 8) return lines
-  const norm = (t: string): string => t.toLowerCase().replace(/\s+/g, ' ').trim()
+  // Collapse digit runs so a running foot whose page number varies
+  // ("数据仓库|5", "数据仓库|7") normalises to one key and is recognised as
+  // repeated furniture (gap analysis #2).
+  const norm = (t: string): string => t.toLowerCase().replace(/\d+/g, '#').replace(/\s+/g, ' ').trim()
   const pagesByText = new Map<string, Set<number>>()
   for (const l of lines) {
     const t = norm(l.text)
     if (!t || t.length > 80) continue
-    const edge = l.y >= l.pageHeight * 0.90 || l.y <= l.pageHeight * 0.10
+    const edge = l.y >= l.pageHeight * 0.88 || l.y <= l.pageHeight * 0.12
     if (!edge) continue
     if (!pagesByText.has(t)) pagesByText.set(t, new Set())
     pagesByText.get(t)!.add(l.page)
@@ -1549,7 +1555,7 @@ function groupItemsIntoLines(
   pageHeight: number
 ): RawLine[] {
   // Collect items sorted by y (top=high first), then x.
-  const fragments: Array<{ str: string; fontSize: number; fontName: string; y: number; x: number }> = []
+  const fragments: Array<{ str: string; fontSize: number; fontName: string; y: number; x: number; width: number }> = []
   for (const raw of items) {
     if (!isTextItem(raw)) continue
     const str = raw.str
@@ -1561,7 +1567,8 @@ function groupItemsIntoLines(
       fontSize,
       fontName: raw.fontName || '',
       y: tm[5],
-      x: tm[4]
+      x: tm[4],
+      width: raw.width || 0
     })
   }
   if (fragments.length === 0) return []
@@ -1631,7 +1638,7 @@ function findColumnGutter(
 
 /** Sort one column's fragments top鈫抌ottom, left鈫抮ight, then baseline-group into lines. */
 function groupColumnIntoLines(
-  fragments: Array<{ str: string; fontSize: number; fontName: string; y: number; x: number }>,
+  fragments: Array<{ str: string; fontSize: number; fontName: string; y: number; x: number; width: number }>,
   pageNumber: number,
   pageWidth: number,
   pageHeight: number,
@@ -1659,14 +1666,14 @@ function groupColumnIntoLines(
 }
 
 function finishLine(
-  cur: { items: Array<{ str: string; fontSize: number; fontName: string; y: number; x: number }>; baseline: number; fontSize: number },
+  cur: { items: Array<{ str: string; fontSize: number; fontName: string; y: number; x: number; width: number }>; baseline: number; fontSize: number },
   pageNumber: number,
   pageWidth: number,
   pageHeight: number,
   col: number
 ): RawLine {
   const sorted = cur.items.slice().sort((a, b) => a.x - b.x)
-  const text = sorted.map((i) => i.str).join('').trim()
+  const text = joinFragments(sorted, cur.fontSize)
   const fontSize = Math.max(...cur.items.map((i) => i.fontSize))
   const fontName = cur.items[0]?.fontName ?? ''
   const x = Math.min(...cur.items.map((i) => i.x))
