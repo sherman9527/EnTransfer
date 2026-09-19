@@ -199,3 +199,13 @@ llama-engine.ts(TDZ/gpuLayers判断/spec开关/分句阈值/maxTokens钳制) reg
   - **但全书实测暴露非纯收益**：p57 纯矢量图页干净出图+去标签；**p55 样式化对比表被误判 image，区域文本过滤连带吃掉表格正文→内容丢失**（pdfzh 警告的 M4 无底洞，我们语料复现）。
   - **决策：回退接线+打包**（有提升才导入/不回归），保留 detector/renderer 模块+单测+POC+数据为地基；原生依赖移 devDeps 不进包。verify 回 40、typecheck/build/regression 全绿。
   - 后续（task #21）：区域文本排除只删短 label+保护表格；图/表判别加 IoU 保护；≥3 语料净收益验证后再上线。
+
+## 2026-09-19 傍晚：C4 否决 + #21 保守门上线（先测后采闭环完成）
+- **C4 fuzzy TM 否决**：全书 1999 单元模拟，精确重复 5.3%（现有缓存已吃），fuzzy≥0.92 仅 +1.0%，且命中全是"仅编号不同的标题"（复用会带错章节号）。不采纳。
+- **#21 保守门完成并接线上线**（feat commit a298c73）：
+  - 只栅格化低 ink(≤12%) 稀疏矢量图区（p57 阶梯 5.6%✓），密集表/图（p55 18%）留给文本路径 → 零内容丢失。
+  - **修了一个 9→8 表格回归**：detectTables 改为在完整行集上跑，区域文本过滤只作用 prose。
+  - 全书审计 9→39 图块(+30)，表格 9 全在，页序回归 0；58 页翻译 e2e 目视确认阶梯图干净入流、上方中文译文正常、无重叠。
+  - 打包：onnxruntime-node/@napi-rs/canvas 转正式依赖 + asarUnpack + 排除非 win32-x64 + after-pack 剪 GPU dll(~36MB)；**canvas-stub 改 re-export @napi-rs/canvas**（修 pdfjs 离屏画布崩溃，之前空桩会让部分页渲染崩）；CAPTURE_VERSION→3。
+  - verify 40 绿、regression 绿。dist 体积 + install-drill 收尾中。
+- 诚实标注：仅 Manning 一份语料验证；保守门设计安全（低 ink + 表格保护），但多语料目视 sweep 仍建议。
