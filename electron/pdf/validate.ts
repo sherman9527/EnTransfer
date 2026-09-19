@@ -53,8 +53,7 @@ export function validateModelOutput(masked: string, raw: string): ValidationOutc
 /** Phase 2: restored translation vs the original source. */
 export function validateRestored(
   source: string,
-  restored: string,
-  opts: { cellMode?: boolean } = {}
+  restored: string
 ): ValidationOutcome {
   const reasons: string[] = []
   const src = source.trim()
@@ -102,16 +101,11 @@ export function validateRestored(
   // Length sanity band (Chinese is denser than English by char count).
   if (src.length > 0) {
     const ratio = out.length / src.length
-    const lo = opts.cellMode ? 0.05 : 0.12
-    const hi = opts.cellMode ? 3.5 : 2.2
-    if (ratio < lo || ratio > hi) reasons.push(`length-ratio:${ratio.toFixed(2)}`)
+    if (ratio < 0.12 || ratio > 2.2) reasons.push(`length-ratio:${ratio.toFixed(2)}`)
   }
 
   // Prompt/thinking marker leaks.
   if (/<\/?think|<system|assistant:|```|"schema_version"/i.test(out)) reasons.push('marker-leak')
-
-  // Cell mode must stay single-line (structure lives in coordinates).
-  if (opts.cellMode && /[\r\n]/.test(out)) reasons.push('cell-newline')
 
   return reasons.length ? fail(...reasons) : { ok: true, reasons: [] }
 }

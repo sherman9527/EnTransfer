@@ -26,6 +26,8 @@ import { CheckpointStore } from './queue/checkpoint.ts'
 import type { CheckpointData } from './queue/checkpoint.ts'
 import { captureFlow, type ContentBlock } from './pdf/capture/flow'
 import { typesetFlow } from './pdf/typeset/flow'
+import { blocksToHtml } from './pdf/typeset/htmlFlow'
+import { printHtmlToPdf } from './pdf/typeset/chromiumPrint'
 import { freezeProtected, restorePlaceholders } from './pdf'
 import { expandAbbreviations } from './pdf/capture/glossary'
 import type { ModelManager } from './models/manager'
@@ -98,31 +100,17 @@ interface TransTask {
 
 /**
  * Walk the block stream and produce a flat list of translation tasks.
- * Code blocks are skipped entirely (verbatim). Table cells become individual
- * tasks keyed by [row,col] — the numbered-batch strategy (proven 100% parse
- * on real tables, poc/speed-v3/table-poc.ts) translates them losslessly
- * because structure lives in coordinates, never in the model's output.
+ * Code, images, tables and formulas are skipped entirely (VERBATIM policy,
+ * user decision 2026-09-19): translating table cells left mixed English/Chinese
+ * headers ("Status") and risked row/col drift — recognized + re-typeset nicely,
+ * never translated.
  */
 function buildTasks(blocks: ContentBlock[]): TransTask[] {
   const tasks: TransTask[] = []
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i]
-    // Code, images and formulas pass through VERBATIM: code/formula must not
-    // be touched, images carry no text.
-    if (b.type === 'code' || b.type === 'image' || b.type === 'formula') continue
+    if (b.type === 'code' || b.type === 'image' || b.type === 'table' || b.type === 'formula') continue
     const page = b.page ?? 1
-    if (b.type === 'table') {
-      const cells = b.cells ?? []
-      for (let r = 0; r < cells.length; r++) {
-        for (let c = 0; c < cells[r].length; c++) {
-          const t = (cells[r][c] ?? '').trim()
-          if (t.length > 1) {
-            tasks.push({ id: `b${i}-r${r}c${c}`, sourceText: t, blockIndex: i, cellRow: r, cellCol: c, page })
-          }
-        }
-      }
-      continue
-    }
     if (b.type === 'list') {
       const items = b.items ?? []
       for (let j = 0; j < items.length; j++) {
@@ -269,8 +257,6 @@ export function createPipeline(
       }
       let batchHits = 0
       let batchFalls = 0
-      let cellHits = 0
-      let cellFalls = 0
 
       const saveProgress = async (): Promise<void> => {
         await checkpoint.save(job.id, {
@@ -295,61 +281,6 @@ export function createPipeline(
         // Already translated in a previous run → skip.
         if (recovered.has(task.id)) {
           taskIdx++
-          continue
-        }
-
-        // ---- Table cells: dedicated numbered batches ----------------------
-        // Cells are usually far below the prose batch min length, so they
-        // never enter the prose batcher; the cell format was validated
-        // separately (POC: 12/12 batches parsed, 0 fallback). Up to 8 cells
-        // of the same table per call.
-        if (task.cellRow !== undefined) {
-          const cbatch: TransTask[] = [task]
-          let ci = taskIdx + 1
-          while (
-            cbatch.length < 8 &&
-            ci < tasks.length &&
-            tasks[ci].cellRow !== undefined &&
-            tasks[ci].blockIndex === task.blockIndex &&
-            !recovered.has(tasks[ci].id)
-          ) {
-            cbatch.push(tasks[ci])
-            ci++
-          }
-          const cellTexts = cbatch.map((t) => t.sourceText)
-          let cparts: string[] | null = null
-          if (cbatch.length >= 2) {
-            try {
-              const cout = await translateText(engine, numberJoin(cellTexts), signal)
-              cparts = numberSplit(cout, cbatch.length)
-              if (cparts !== null) cellHits++
-              else cellFalls++
-            } catch (err) {
-              if (signal.aborted) { await saveProgress(); return }
-              throw err
-            }
-          }
-          for (let k = 0; k < cbatch.length; k++) {
-            const t = cbatch[k]
-            let text: string
-            if (cparts !== null) {
-              text = cparts[k]
-            } else {
-              if (signal.aborted) { await saveProgress(); return }
-              try {
-                text = await translateText(engine, t.sourceText, signal)
-              } catch (err) {
-                if (signal.aborted) { await saveProgress(); return }
-                throw err
-              }
-            }
-            writeBack(blocks, t, text)
-            await checkpoint.appendTranslation(job.id, t.id, text)
-            translatedCount++
-            if (t.page > currentPage) { currentPage = t.page; job.currentPage = currentPage }
-            onProgress(currentPage, clamp100(5 + (translatedCount / Math.max(1, total)) * 85))
-          }
-          taskIdx = ci
           continue
         }
 
@@ -432,19 +363,23 @@ export function createPipeline(
           taskIdx++
         }
       }
-      console.log(`[pipeline] prose batches: ${batchHits} ok / ${batchFalls} fallback; cell batches: ${cellHits} ok / ${cellFalls} fallback`)
+      console.log(`[pipeline] prose batches: ${batchHits} ok / ${batchFalls} fell back to single`)
 
       // ==================================================================
-      // Phase 3 — typesetting (fresh A4, flow layout)
+      // Phase 3 — typesetting (Chromium primary, pdf-lib fallback)
       // ==================================================================
       job.status = 'typesetting'
       onProgress(job.totalPages, 92)
-      console.log('[pipeline] typesetFlow starting...')
       const t1 = Date.now()
-      await typesetFlow(blocks, job.outputPath, {
-        fontPath: resolveFontPath()
-      })
-      console.log(`[pipeline] typesetFlow done in ${((Date.now() - t1) / 1000).toFixed(1)}s`)
+      try {
+        console.log('[pipeline] chromium compose+print starting...')
+        await printHtmlToPdf(blocksToHtml(blocks), job.outputPath)
+        console.log(`[pipeline] chromium typeset done in ${((Date.now() - t1) / 1000).toFixed(1)}s`)
+      } catch (err) {
+        console.warn(`[pipeline] chromium typeset failed (${(err as Error).message}); falling back to pdf-lib`)
+        await typesetFlow(blocks, job.outputPath, { fontPath: resolveFontPath() })
+        console.log(`[pipeline] pdf-lib typeset done in ${((Date.now() - t1) / 1000).toFixed(1)}s`)
+      }
       onProgress(job.totalPages, 98)
 
       // ==================================================================
