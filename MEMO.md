@@ -169,3 +169,18 @@ llama-engine.ts(TDZ/gpuLayers判断/spec开关/分句阈值/maxTokens钳制) reg
 - 提交：abb1c03 fix(review) / c0a742f chore(trim) / UX 批次 feat(ui)。
 - 待办：① 全书 warm 重跑（验证 R1–R3 在全量下的行为）② npm run dist + 安装→卸载零残留演练（task #17）
   ③ phase2：矢量图区域栅格化、用户术语表、PP-DocLayout-S 试验。
+
+## 2026-09-19 中午：零残留演练实测抓出 R13/R14（task #17 完成）
+- dist 三轮构建：102.19MB（vs 9/13 的 128MB，-26MB）。after-pack 稳定省：locales 39.3 + ISA 2×15.4 + gitRelease 32.8（解包）。
+- **R13（HIGH，实测）**：assisted 安装器无视 `differentialPackage:false` 仍把 100MB 安装器复制进
+  `%LOCALAPPDATA%\entransfer-updater\installer.exe`，NSIS 卸载不删 → 修：uninstaller.nsh 兜底
+  `RMDir /r "$LOCALAPPDATA\entransfer-updater"`，drill 实测安装后目录出现→卸载后消失 ✓。
+- **R14（HIGH）**：`npm run dist` 直连 electron-vite，postbuild（copy-pdf-worker）从不触发 → 历史安装包
+  全部缺 out/main/pdf.worker.js（pdf.js 静默降级 fake-worker）。修：dist/pack 改 `npm run build && …`，
+  dist-run3 日志确认 [copy-pdf-worker] 执行 ✓。
+- 演练踩坑（记！）：① app 进程未退净时卸载会"假失败"（文件锁），Stop-Process 全量+等 3s 才是正确姿势；
+  ② git-bash 传参 `scripts\x.ps1` 反斜杠被吞，用正斜杠。
+- 演练固化：`scripts/install-drill.ps1`（安装→运行 8s→退净→静默卸载→四处残留审计），
+  本次端到端 PASS "zero residue"；verify 新增 R13/R13b 两项（38→40 项全绿）。
+- 顺带清掉开发期陈留 ~224MB（Roaming/entransfer 1.8M + entransfer-updater 126M+98M）。
+- AGENTS.md 增补见下。

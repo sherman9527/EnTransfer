@@ -41,6 +41,8 @@
 | R10 | WATCH | 引擎反复 sick 重建无上限 | verify 3g（sickRebuilds 上限） |
 | R11 | WATCH | 打印固定 500ms 等待，大图会截断 | verify 3g（fonts.ready） |
 | R12 | LOW | webp/gif 按 jpeg 声明；临时 HTML 泄漏 | regression 静态 + verify 3g |
+| R13 | HIGH | assisted 安装器把整个安装器(~100MB+)复制进 `%LOCALAPPDATA%\<name>-updater`，卸载不清理（零残留演练实测抓出；`differentialPackage:false` 对 assisted 模式无效） | verify（flag + nsh 兜底删除 R13b）+ 安装→卸载演练 |
+| R14 | HIGH | `npm run dist` 直连 electron-vite，npm `postbuild`（pdf.worker.js 拷贝）从不执行 → 安装包缺 worker，pdf.js 静默降级 fake-worker | dist/pack 脚本改为 `npm run build && electron-builder …`；verify「out/main/pdf.worker.js 存在」常跑 |
 
 ## 新用例模板
 

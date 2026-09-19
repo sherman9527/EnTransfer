@@ -118,6 +118,11 @@ if (fileExists('electron/pdf/capture/flow.ts')) {
   const nsh = fileExists('build/uninstaller.nsh') ? readText('build/uninstaller.nsh') : ''
   check('uninstaller.nsh 删 $INSTDIR\\models', nsh.includes('$INSTDIR\\models') || nsh.includes('$INSTDIR\\Models'), '未删运行期模型目录')
   check('uninstaller.nsh 删 $INSTDIR\\data', nsh.includes('$INSTDIR\\data'), '未删运行期数据目录')
+  // R13: differentialPackage 会把整个安装器(≈120MB)复制到 %LOCALAPPDATA%\<name>-updater，
+  // 卸载器不清理 → 静默大残留。项目无自动更新，必须保持 false。
+  check('nsis.differentialPackage=false (R13)', pkg.includes('"differentialPackage": false') || pkg.includes('"differentialPackage":false'), '安装器会复制自身到 LOCALAPPDATA entransfer-updater，卸载残留 ~120MB')
+  // R13b: assisted(oneClick:false) 安装器无视配置仍会复制自身，卸载钩子必须兜底删除。
+  check('uninstaller.nsh 删 $LOCALAPPDATA\\entransfer-updater (R13b)', nsh.includes('entransfer-updater'), 'assisted 安装器自缓存目录未兜底清理')
 }
 
 // 3f. node-llama-cpp 没有静态 require

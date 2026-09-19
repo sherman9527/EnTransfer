@@ -23,5 +23,5 @@ Electron 离线英译中 PDF 翻译器。主进程推理（node-llama-cpp/Vulkan
 - 排版主路径是 Chromium `printToPDF`；pdf-lib 仅作兜底，别再给它加功能。
 - 表格/图片/代码保持原文不翻译（VERBATIM 决策，勿再翻转）。
 - 安装后运行期文件只允许落在安装目录 `data/`、`models/`（卸载零残留，
-  verify 有 7 项便携性检查）。
+  verify 有便携性检查 + scripts/install-drill.ps1 端到端演练（装→跑→卸）必须 PASS）。
 - 行为日志随手记入根目录 `MEMO.md`，防上下文丢失。

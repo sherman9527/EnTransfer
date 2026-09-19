@@ -11,8 +11,8 @@
         "build": "electron-vite build",
         "start": "electron-vite preview",
         "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
-        "pack": "electron-vite build && electron-builder --dir",
-        "dist": "electron-vite build && electron-builder --win",
+        "pack": "npm run build && electron-builder --dir",
+        "dist": "npm run build && electron-builder --win",
         "postbuild": "node scripts/copy-pdf-worker.js",
         "verify": "node scripts/verify-build.js",
         "verify:asar": "node scripts/verify-build.js --asar",
@@ -91,6 +91,7 @@
             "installerIcon": "build/icon.ico",
             "uninstallerIcon": "build/icon.ico",
             "deleteAppDataOnUninstall": true,
+            "differentialPackage": false,
             "include": "build/uninstaller.nsh"
         },
         "afterPack": "scripts/after-pack.js",
