@@ -72,3 +72,29 @@ export function isRunningFurniture(text: string, y: number, pageHeight: number, 
   if (nearEdge && (/^\d{1,4}$/.test(t) || /^[ivxlcdm]{1,7}$/i.test(t))) return true
   return false
 }
+
+/** Valid Roman numeral (canonical form), so words like "civic"/"mill" are NOT
+ * mistaken for a bleeding page number. */
+export function isRoman(s: string): boolean {
+  const u = s.toUpperCase()
+  return /^[MDCLXVI]{2,7}$/.test(u) &&
+    /^M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})$/.test(u)
+}
+
+/**
+ * Strip a standalone page number that bled into a paragraph (running head/foot
+ * merged with body text). Conservative to avoid eating real content:
+ *   - leading Roman ONLY if a valid numeral ("xiv available" -> "available";
+ *     "Civic center" / "Mill lane" untouched);
+ *   - leading Arabic only when followed by a Capital (page num + heading word);
+ *   - trailing Arabic only on long paragraphs (page bleed lands at the end of
+ *     real prose, not short lines like "the value was 3").
+ */
+export function stripBleedingPageNumbers(text: string): string {
+  let t = text.trim()
+  const leadRoman = /^([MDCLXVI]{2,7})\s+/i.exec(t)
+  if (leadRoman && isRoman(leadRoman[1])) t = t.slice(leadRoman[0].length)
+  t = t.replace(/^\d{1,3}\s+(?=[A-Z])/, '')
+  if (t.length > 60) t = t.replace(/\s+\d{1,3}\s*$/, '')
+  return t.trim()
+}

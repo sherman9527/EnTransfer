@@ -19,7 +19,7 @@ import { isGarbageText, garbageRatio } from './text-garbage.ts'
 import { validateModelOutput, validateRestored } from './pdf/validate.ts'
 import { TranslationCache } from './models/translation-cache.ts'
 import { isHardwareError } from './models/engine-errors.ts'
-import { joinFragments, isRunningFurniture } from './pdf/capture/line-utils.ts'
+import { joinFragments, isRunningFurniture, stripBleedingPageNumbers } from './pdf/capture/line-utils.ts'
 
 let failures = 0
 function check(name: string, cond: boolean): void {
@@ -198,6 +198,20 @@ console.log('R19 furniture Roman rule is edge-gated')
   check('mid-page "civic" -> NOT furniture', !isRunningFurniture('civic', 300, H))
   check('edge Roman "iv" -> furniture', isRunningFurniture('iv', 585, H))
   check('edge lone number "16" -> furniture', isRunningFurniture('16', 42, H))
+}
+
+// R20 — stripBleedingPageNumbers must not eat real content (gap review #11):
+// "Civic"/"Mill" are not Roman numerals; short lines ending in a real number
+// keep it; genuine page-number bleed still stripped.
+console.log('R20 bleeding page-number strip is conservative')
+{
+  check('"Civic center opens here" untouched', stripBleedingPageNumbers('Civic center opens here') === 'Civic center opens here')
+  check('"Mill lane district" untouched', stripBleedingPageNumbers('Mill lane district') === 'Mill lane district')
+  check('"xiv available" -> "available"', stripBleedingPageNumbers('xiv available for everyone') === 'available for everyone')
+  check('"6 Leadership skills" -> "Leadership skills"', stripBleedingPageNumbers('6 Leadership skills') === 'Leadership skills')
+  check('short "the value was 3" keeps 3', stripBleedingPageNumbers('the value was 3') === 'the value was 3')
+  const long = 'a'.repeat(70) + ' competencies 6'
+  check('long paragraph trailing page number stripped', stripBleedingPageNumbers(long) === 'a'.repeat(70) + ' competencies')
 }
 
 // ---------------------------------------------------------------------------

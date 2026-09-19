@@ -24,7 +24,7 @@ import * as zlib from 'node:zlib'
 import * as pdfjsNamespace from 'pdfjs-dist/legacy/build/pdf.js'
 import { LayoutDetector } from './layout-detector'
 import { renderForDetect, renderClip, disposeRenderer } from './page-renderer'
-import { joinFragments, isRunningFurniture } from './line-utils'
+import { joinFragments, isRunningFurniture, stripBleedingPageNumbers } from './line-utils'
 import {
   PDFDocument,
   PDFName,
@@ -931,31 +931,6 @@ function matchImagesToPlacements(
   return pairs
 }
 
-// ---------------------------------------------------------------------------
-// Furniture cleanup: page numbers bleeding into paragraphs / headings
-// ---------------------------------------------------------------------------
-
-/**
- * Strip standalone page numbers that leaked into a paragraph.
- *
- *   - leading Roman-numeral page number:  "xv available ..."      鈫?"available ..."
- *   - leading Arabic page number:        "6 Leadership ..."      鈫?"Leadership ..."
- *     (a section number like "1.1 ..." keeps its dot, so it is untouched)
- *   - trailing Arabic page number:        "... competencies 6"   鈫?"... competencies"
- *
- * Years (4+ digits) and dotted section numbers are intentionally preserved.
- */
-function stripBleedingPageNumbers(text: string): string {
-  let t = text.trim()
-  // Leading Roman page number (鈮? chars, e.g. "xv", "xvii", "iv").
-  t = t.replace(/^[ivxlcdm]{2,6}\s+/, '')
-  // Leading Arabic page number (1鈥? digits + whitespace). Section numbers
-  // ("1.1 ") contain a dot after the digits, so they never match.
-  t = t.replace(/^\d{1,3}\s+/, '')
-  // Trailing standalone Arabic page number.
-  t = t.replace(/\s+\d{1,3}\s*$/, '')
-  return t.trim()
-}
 
 /**
  * Defensive fix for a glued chapter+section heading seen in TOC artifacts:
@@ -1417,16 +1392,14 @@ export async function captureFlow(
   flushList()
   flushCode()
 
-  // Step 7: interleave image blocks into the stream.
-  // For each matched image, find the right position: insert it after the last
-  // block on the same page whose topY is above the image's centerY.
+  // Steps 7–8: interleave image / figure-region / table blocks into the prose
+  // stream by READING POSITION. blockEntries are in top-down order (decreasing
+  // topY within a page). The old per-item splice loops broke on the first block
+  // ABOVE the item and inserted before it, dumping every image/table near the
+  // page top (bug). Instead: append each item with its (page, topY) and do ONE
+  // stable sort by (page asc, topY desc) at the end — correct and simpler.
   if (matchedImages.length > 0) {
-    // Sort images by page then by centerY (top to bottom = high to low y).
-    const sortedImages = matchedImages.slice().sort(
-      (a, b) => a.placement.page - b.placement.page || b.placement.centerY - a.placement.centerY
-    )
-
-    for (const { image, placement } of sortedImages) {
+    for (const { image, placement } of matchedImages) {
       const imgBlock: ContentBlock = {
         type: 'image',
         page: placement.page,
@@ -1435,58 +1408,22 @@ export async function captureFlow(
         imagePixelWidth: image.pixelWidth,
         imagePixelHeight: image.pixelHeight
       }
-
-      // Find insertion point: after the last block on the same page that starts
-      // above (higher y than) the image center.
-      let insertIdx = blockEntries.length
-      for (let i = 0; i < blockEntries.length; i++) {
-        const entry = blockEntries[i]
-        if (entry.page === placement.page && entry.topY > placement.centerY) {
-          insertIdx = i
-          break
-        }
-        // If we've moved past this page entirely, insert before the first
-        // block of the next page.
-        if (entry.page > placement.page) {
-          insertIdx = i
-          break
-        }
-      }
-      blockEntries.splice(insertIdx, 0, { block: imgBlock, page: placement.page, topY: placement.centerY })
+      blockEntries.push({ block: imgBlock, page: placement.page, topY: placement.centerY })
     }
   }
 
   // Step 7.5: C1 — rasterize the detected sparse figure regions into image
   // blocks (their leaked labels were already dropped from prose above).
   const layoutEntries = await emitRegionImages(inputPath, figureRegions)
-  for (const entry of layoutEntries) {
-    let insertIdx = blockEntries.length
-    for (let i = 0; i < blockEntries.length; i++) {
-      const e = blockEntries[i]
-      if (e.page === entry.page && e.topY > entry.topY) { insertIdx = i; break }
-      if (e.page > entry.page) { insertIdx = i; break }
-    }
-    blockEntries.splice(insertIdx, 0, entry)
-  }
+  for (const entry of layoutEntries) blockEntries.push(entry)
   imageCount += layoutEntries.length
 
-  // Step 8: interleave table blocks (already extracted from the prose stream).
-  // Insert each table at the right reading position by page + topY.
-  for (const t of tableEntries) {
-    let insertIdx = blockEntries.length
-    for (let i = 0; i < blockEntries.length; i++) {
-      const entry = blockEntries[i]
-      if (entry.page === t.page && entry.topY > t.topY) {
-        insertIdx = i
-        break
-      }
-      if (entry.page > t.page) {
-        insertIdx = i
-        break
-      }
-    }
-    blockEntries.splice(insertIdx, 0, t)
-  }
+  // Step 8: tables (already extracted from the prose stream).
+  for (const t of tableEntries) blockEntries.push(t)
+
+  // Single stable sort into reading order (page top→bottom). Array.sort is
+  // stable (ES2019+), so equal-position prose blocks keep their relative order.
+  blockEntries.sort((a, b) => a.page - b.page || b.topY - a.topY)
 
 /**
  * Running heads/feet that escape the per-page band filters: identical
@@ -1678,17 +1615,22 @@ function finishLine(
   const fontName = cur.items[0]?.fontName ?? ''
   const x = Math.min(...cur.items.map((i) => i.x))
   // Split fragments into column cells when a large x-gap appears (table rows).
-  const segments: Array<{ text: string; x: number }> = []
+  // Track each cell's real right edge (x+width) and join intra-cell fragments
+  // with the same gap-aware spacing as prose, so table cells don't word-glue
+  // ("TheData") or mis-split columns from a crude char-width estimate (#2).
+  const segs: Array<{ text: string; x: number; end: number }> = []
   for (const f of sorted) {
-    const last = segments[segments.length - 1]
-    if (last && f.x - (last.x + last.text.length * fontSize * 0.5) > TABLE_COL_GAP_PT) {
-      segments.push({ text: f.str, x: f.x })
-    } else if (last) {
-      last.text += f.str
+    const fs = f.str.replace(/\s+/g, ' ').trim()
+    if (!fs) continue
+    const last = segs[segs.length - 1]
+    if (!last || f.x - last.end > TABLE_COL_GAP_PT) {
+      segs.push({ text: fs, x: f.x, end: f.x + f.width })
     } else {
-      segments.push({ text: f.str, x: f.x })
+      last.text += (f.x - last.end > fontSize * 0.14 ? ' ' : '') + fs
+      last.end = f.x + f.width
     }
   }
+  const segments: Array<{ text: string; x: number }> = segs.map((s) => ({ text: s.text, x: s.x }))
   return { text, fontSize, fontName, y: cur.baseline, x, page: pageNumber, pageWidth, pageHeight, col, segments }
 }
 
