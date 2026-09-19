@@ -70,6 +70,8 @@ export interface ContentBlock {
   cols?: number
   /** table block: whether the first row is a header. */
   hasHeader?: boolean
+  /** table block: per-column width weights (same length as cols, sums to ~1). */
+  colWidths?: number[]
 }
 
 export interface FlowCaptureResult {
@@ -204,11 +206,21 @@ interface DetectedTable {
   cells: string[][]
   page: number
   startTopY: number
+  /** Column x-anchor centers used for detection (for proportional column widths). */
+  anchors: number[]
+  /** Per-column width weights (sums to ~1), from anchor spacing. */
+  colWidths: number[]
+}
+
+/** Header row: short labels in every column (guards the page-repeat logic). */
+function looksLikeHeaderRow(cells: string[][]): boolean {
+  if (cells.length < 2) return false
+  const first = cells[0]
+  return first.length >= 2 && first.every((c) => c.trim().length > 0 && c.trim().length <= 24)
 }
 
 /** Cluster x-positions into column anchors; returns sorted cluster centers. */
-function clusterX(xs: number[], clusterGap: number): number[] {
-  if (xs.length === 0) return []
+function clusterX(xs: number[], clusterGap: number): number[] {  if (xs.length === 0) return []
   const sorted = xs.slice().sort((a, b) => a - b)
   const clusters: number[][] = [[sorted[0]]]
   for (let i = 1; i < sorted.length; i++) {
@@ -347,7 +359,27 @@ function detectTables(lines: RawLine[]): { tables: DetectedTable[]; skip: Set<Ra
       // Drop fully-empty rows.
       const clean = rows.filter((r) => r.some((c) => c.trim().length > 0))
       if (clean.length < TABLE_MIN_ROWS) continue
-      tables.push({ cells: clean, page, startTopY: run[0].line.y })
+      // Prune all-empty columns and derive proportional column widths from the
+      // anchor spacing (equal-width columns squeeze wrapped text into one-char
+      // vertical stacks — the classic Manning-table rendering bug).
+      const keep: number[] = []
+      for (let c = 0; c < ncols; c++) {
+        if (clean.some((r) => (r[c] ?? '').trim().length > 0)) keep.push(c)
+      }
+      const pruned = clean.map((r) => keep.map((c) => r[c] ?? ''))
+      if (keep.length < 2 || pruned.length < TABLE_MIN_ROWS) continue
+      const gaps: number[] = []
+      const rawGaps: number[] = []
+      for (let i = 1; i < anchors.length; i++) rawGaps.push(anchors[i] - anchors[i - 1])
+      rawGaps.sort((a, b) => a - b)
+      const medianGap = rawGaps.length ? Math.max(24, rawGaps[Math.floor(rawGaps.length / 2)]) : 60
+      for (let i = 0; i < keep.length; i++) {
+        const w = i + 1 < keep.length ? anchors[keep[i + 1]] - anchors[keep[i]] : medianGap
+        gaps.push(Math.max(24, w))
+      }
+      const gw = gaps.reduce((a, b) => a + b, 0) || 1
+      const colWidths = gaps.map((g) => g / gw)
+      tables.push({ cells: pruned, page, startTopY: run[0].line.y, anchors, colWidths })
       for (const m of run) skip.add(m.line)
     }
   }
@@ -1080,7 +1112,8 @@ export async function captureFlow(
       cells: t.cells,
       rows: t.cells.length,
       cols: t.cells[0]?.length ?? 0,
-      hasHeader: t.cells.length >= 1,
+      hasHeader: looksLikeHeaderRow(t.cells),
+      colWidths: t.colWidths,
       page: t.page
     } as ContentBlock,
     page: t.page,

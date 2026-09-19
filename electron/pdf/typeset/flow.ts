@@ -347,81 +347,127 @@ export async function typesetFlow(
       const cols = block.cols ?? (cells[0]?.length ?? 0)
       if (rows > 0 && cols > 0) {
         const padX = 6
-        const colW = CONTENT_W / cols
         const cellFontSize = STYLES.body.size
-        // Wrap every cell within its column width.
+        // Column widths: capture-stage weights (anchor spacing), equal-width
+        // fallback, and a minimum clamp so wrapped text never collapses into
+        // a one-character vertical stack.
+        const MIN_COL_W = 48
+        const anchorW: number[] =
+          block.colWidths && block.colWidths.length === cols
+            ? block.colWidths.slice()
+            : new Array(cols).fill(1 / cols)
+        // Blend anchor spacing with content mass: the source layout's column
+        // gaps fit ENGLISH text heights; a re-typeset Chinese grid needs wide
+        // columns where long cells live, or text collapses to one char per line.
+        const weights: number[] = new Array(cols).fill(0)
+        {
+          const colMax: number[] = new Array(cols).fill(1)
+          for (const row of cells)
+            for (let c = 0; c < cols; c++) colMax[c] = Math.max(colMax[c], (row[c] ?? '').trim().length)
+          const csum = colMax.reduce((a, b) => a + b, 0)
+          for (let c = 0; c < cols; c++) {
+            weights[c] = 0.45 * anchorW[c] + 0.55 * (colMax[c] / csum)
+          }
+          const wsum = weights.reduce((a, b) => a + b, 0) || 1
+          for (let c = 0; c < cols; c++) weights[c] /= wsum
+          let lifted = 0
+          let rest = 0
+          for (let c = 0; c < cols; c++) {
+            const wPt = weights[c] * CONTENT_W
+            if (wPt < MIN_COL_W) {
+              lifted += MIN_COL_W - wPt
+              weights[c] = MIN_COL_W / CONTENT_W
+            } else {
+              rest += wPt
+            }
+          }
+          if (lifted > 0 && rest > lifted) {
+            const scale = (rest - lifted) / rest
+            for (let c = 0; c < cols; c++) {
+              const wPt = weights[c] * CONTENT_W
+              if (wPt > MIN_COL_W) weights[c] = (wPt * scale) / CONTENT_W
+            }
+          }
+        }
+        const colEdges: number[] = [CONTENT_LEFT]
+        for (let c = 0; c < cols; c++) colEdges.push(colEdges[c] + weights[c] * CONTENT_W)
+        const colWs: number[] = []
+        for (let c = 0; c < cols; c++) colWs.push(Math.max(20, colEdges[c + 1] - colEdges[c] - padX * 2))
         const wrappedCells: LaidOutLine[][][] = cells.map((row) =>
-          row.map((cell) => wrapMixed(cleanText(cell ?? ''), bodyAdapter, cellFontSize, colW - padX * 2))
+          row.map((cell, c) => wrapMixed(cleanText(cell ?? ''), bodyAdapter, cellFontSize, colWs[c]))
         )
         const rowHeights = wrappedCells.map((row) => {
           const lines = Math.max(1, ...row.map((w) => w.length))
           return lines * STYLES.body.lineHeight + 6
         })
-        const tableHeight = rowHeights.reduce((a, b) => a + b, 0) + STYLES.body.before + STYLES.body.after
 
-        if (baselineY - tableHeight < CONTENT_BOTTOM) {
-          drawPageNumber()
-          newPage()
-        }
-
+        // Row-at-a-time drawing with page splitting; the header row repeats on
+        // continuation pages and each page segment gets its own grid frame.
         baselineY -= STYLES.body.before
-        const tableTop = baselineY
-        let cursorY = baselineY
-        const rowTops: number[] = []
-        for (let r = 0; r < rows; r++) {
+        let segTop: number | null = null
+        let segBottom = 0
+        const closeSeg = (): void => {
+          if (segTop === null) return
+          page.drawRectangle({
+            x: CONTENT_LEFT,
+            y: segBottom,
+            width: CONTENT_W,
+            height: segTop - segBottom,
+            borderColor: rgb(0.7, 0.7, 0.7),
+            borderWidth: 0.6
+          })
+          for (let c = 1; c < cols; c++) {
+            page.drawLine({
+              start: { x: colEdges[c], y: segBottom },
+              end: { x: colEdges[c], y: segTop },
+              thickness: 0.4,
+              color: rgb(0.8, 0.8, 0.8)
+            })
+          }
+          segTop = null
+        }
+        const drawRow = (r: number): void => {
           const rh = rowHeights[r]
-          rowTops.push(cursorY)
-          const isHeader = block.hasHeader && r === 0
-          // Header / zebra background.
-          if (isHeader) {
+          if (segTop === null) segTop = baselineY
+          const rowTop = baselineY
+          const rowBottom = baselineY - rh
+          if (block.hasHeader && r === 0) {
             page.drawRectangle({
               x: CONTENT_LEFT,
-              y: cursorY - rh,
+              y: rowBottom,
               width: CONTENT_W,
               height: rh,
               color: CODE_BG
             })
           }
-          // Draw cells.
           for (let c = 0; c < cols; c++) {
-            const cellX = CONTENT_LEFT + c * colW + padX
-            let cy = cursorY - STYLES.body.lineHeight + 2
+            const cellX = colEdges[c] + padX
+            let cy = rowTop - STYLES.body.lineHeight + 2
             for (const line of wrappedCells[r][c]) {
               drawLine(page, line, cellX, cy, fonts, cellFontSize)
               cy -= STYLES.body.lineHeight
             }
           }
-          cursorY -= rh
-        }
-        // Outer border + column separators + row separators.
-        const tableBottom = cursorY
-        page.drawRectangle({
-          x: CONTENT_LEFT,
-          y: tableBottom,
-          width: CONTENT_W,
-          height: tableTop - tableBottom,
-          borderColor: rgb(0.7, 0.7, 0.7),
-          borderWidth: 0.6
-        })
-        for (let c = 1; c < cols; c++) {
-          const vx = CONTENT_LEFT + c * colW
           page.drawLine({
-            start: { x: vx, y: tableBottom },
-            end: { x: vx, y: tableTop },
+            start: { x: CONTENT_LEFT, y: rowTop },
+            end: { x: CONTENT_LEFT + CONTENT_W, y: rowTop },
             thickness: 0.4,
             color: rgb(0.8, 0.8, 0.8)
           })
+          baselineY = rowBottom
+          segBottom = rowBottom
         }
-        for (let r = 0; r <= rows; r++) {
-          const hy = r === rows ? tableBottom : rowTops[r]
-          page.drawLine({
-            start: { x: CONTENT_LEFT, y: hy },
-            end: { x: CONTENT_LEFT + CONTENT_W, y: hy },
-            thickness: 0.4,
-            color: rgb(0.8, 0.8, 0.8)
-          })
+        for (let r = 0; r < rows; r++) {
+          if (segTop !== null && baselineY - rowHeights[r] < CONTENT_BOTTOM) {
+            closeSeg()
+            drawPageNumber()
+            newPage()
+            if (block.hasHeader) drawRow(0)
+          }
+          drawRow(r)
         }
-        baselineY = tableBottom - STYLES.body.after
+        closeSeg()
+        baselineY -= STYLES.body.after
       }
       continue
     }
