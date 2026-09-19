@@ -14,8 +14,7 @@ import type {
   LlamaModelOptions,
   ChatWrapper,
   Token,
-  LlamaChatSession,
-  JinjaTemplateChatWrapper
+  LlamaChatSession
 } from 'node-llama-cpp'
 import { loadLlamaCpp } from './llama-cpp-loader.ts'
 import type {
@@ -224,13 +223,19 @@ export class LlamaCppEngine {
       threads = this.threads
     }
     this.threads = threads
-    this.contextSize = options?.contextSize ?? this.contextSize
 
     // ---- Resolve GPU offloading ----------------------------------------
     // 'cpu' skips probing entirely (cheap, no Vulkan init). Otherwise probe.
     const gpu: GpuInfo | null = device === 'cpu' ? null : await detectGpu()
     let gpuLayers = resolveGpuLayers(device, gpu)
     const wantGpu = gpuLayers !== 0
+
+    // Dynamic context size: GPU has VRAM to spare, use 4096 for longer chunks
+    // (fewer model calls, less prompt overhead). CPU is memory-bandwidth limited,
+    // keep 2048 to minimize KV cache pressure.
+    const baseContext = options?.contextSize ?? this.contextSize
+    this.contextSize = wantGpu ? Math.max(baseContext, 4096) : baseContext
+    console.log(`[llama] contextSize=${this.contextSize} (${wantGpu ? 'GPU' : 'CPU'})`)
     console.log(
       `[llama] load: device=${device} gpu=${gpu?.type ?? 'none'} gpuLayers=${gpuLayers} threads=${threads}`
     )
@@ -335,7 +340,11 @@ export class LlamaCppEngine {
     await this.resetToSystemPrefix()
 
     const promptTokenCount = this.model.tokenize(this.buildPrompt(text), false).length
-    if (promptTokenCount <= PROMPT_TOKEN_SPLIT_THRESHOLD) {
+    // Split threshold is bounded by the actual context: worst case the Chinese
+    // output costs about as many tokens as the English source, so a prompt may
+    // not exceed ~half the window or generation silently context-shifts.
+    const splitThreshold = Math.min(PROMPT_TOKEN_SPLIT_THRESHOLD, Math.floor(this.contextSize * 0.45))
+    if (promptTokenCount <= splitThreshold) {
       return this.translateOne(text, options, promptTokenCount)
     }
     const cut = splitAtSentenceBoundary(text)
@@ -365,8 +374,12 @@ export class LlamaCppEngine {
     const promptTokens = promptTokenCount ?? model.tokenize(prompt, false).length
     const t0 = Date.now()
     let firstTokenAt: number | null = null
+    // Never let generation run past the context window: overflow triggers an
+    // implicit contextShift (oldest tokens erased) and the model "forgets" the
+    // instruction mid-paragraph. Reserve 16 cells for the chat-template tail.
+    const maxTokens = Math.max(64, Math.min(MAX_TOKENS, this.contextSize - promptTokens - 16))
     const result = await session.promptWithMeta(prompt, {
-      maxTokens: MAX_TOKENS,
+      maxTokens,
       temperature: options?.temperature ?? this.temperature,
       topK: this.topK,
       topP: this.topP,
@@ -385,6 +398,11 @@ export class LlamaCppEngine {
       promptTokens,
       firstTokenMs: firstTokenAt !== null ? firstTokenAt - t0 : timeMs
     }
+  }
+
+  /** Token count of a text under the loaded model's tokenizer (benchmark helper). */
+  tokenizeCount(text: string): number {
+    return this.model ? this.model.tokenize(text, false).length : 0
   }
 
   /** Release the loaded model and context. Safe to call repeatedly. */

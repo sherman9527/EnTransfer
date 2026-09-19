@@ -25,7 +25,10 @@ export interface EngineConfig {
 /** The single shipped model's engine config. */
 export const SINGLE_MODEL_CONFIG: EngineConfig = {
   systemPrompt: GENERIC_SYSTEM_PROMPT,
-  contextSize: 1024,
+  // 1024 was a doc drift: paragraphs up to ~900 source tokens need prompt +
+  // Chinese output in the SAME window (see llama-engine split threshold), and
+  // measured decode speed is identical at 2048 (docs/SPEED-OPTIMIZATION.md).
+  contextSize: 2048,
   threads: 12,
   temperature: 0.1,
   topK: 20,
