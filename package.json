@@ -86,7 +86,9 @@
             "createStartMenuShortcut": true,
             "shortcutName": "EnTransfer",
             "installerIcon": "build/icon.ico",
-            "uninstallerIcon": "build/icon.ico"
+            "uninstallerIcon": "build/icon.ico",
+            "deleteAppDataOnUninstall": true,
+            "include": "build/uninstaller.nsh"
         },
         "afterPack": "scripts/after-pack.js",
         "compression": "maximum"

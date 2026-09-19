@@ -104,6 +104,22 @@ if (fileExists('electron/pdf/capture/flow.ts')) {
   check('capture/flow.ts 设置了 GlobalWorkerOptions.workerSrc', captureFlow.includes('GlobalWorkerOptions.workerSrc'), '缺少 workerSrc 设置')
 }
 
+// 3e-2. 便携化 / 卸载零残留（回归防线）
+{
+  const main = fileExists('electron/main.ts') ? readText('electron/main.ts') : ''
+  check('main.ts 将 userData 重定向到可移植 data 目录', main.includes("app.setPath('userData'"), 'userData 仍在 %APPDATA%，卸载会残留')
+  const print = fileExists('electron/pdf/typeset/chromiumPrint.ts') ? readText('electron/pdf/typeset/chromiumPrint.ts') : ''
+  check('chromiumPrint 中间 HTML 可传入 workTmpDir', print.includes('workTmpDir'), '临时文件写死系统 tmp，未跟随安装目录')
+  const pipeline = fileExists('electron/pipeline.ts') ? readText('electron/pipeline.ts') : ''
+  check('pipeline 打印时传 data/tmp 目录', /printHtmlToPdf\([^)]*'tmp'\)/.test(pipeline) || pipeline.includes("join(jobsDir, '..', 'tmp')"), '未把可移植 tmp 传给 printHtmlToPdf')
+  const pkg = fileExists('package.json') ? readText('package.json') : ''
+  check('nsis.deleteAppDataOnUninstall=true', pkg.includes('"deleteAppDataOnUninstall": true') || pkg.includes('"deleteAppDataOnUninstall":true'), '卸载不清 appData')
+  check('nsis.include 指向 uninstaller.nsh', pkg.includes('build/uninstaller.nsh'), '缺少自定义卸载钩子')
+  const nsh = fileExists('build/uninstaller.nsh') ? readText('build/uninstaller.nsh') : ''
+  check('uninstaller.nsh 删 $INSTDIR\\models', nsh.includes('$INSTDIR\\models') || nsh.includes('$INSTDIR\\Models'), '未删运行期模型目录')
+  check('uninstaller.nsh 删 $INSTDIR\\data', nsh.includes('$INSTDIR\\data'), '未删运行期数据目录')
+}
+
 // 3f. node-llama-cpp 没有静态 require
 const allSourceFiles = []
 function walkDir(dir) {

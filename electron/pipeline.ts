@@ -418,7 +418,7 @@ export function createPipeline(
       const fallbackKeys = new Set(fallbacks.map((f) => f.unit))
       try {
         console.log('[pipeline] chromium compose+print starting...')
-        await printHtmlToPdf(blocksToHtml(blocks, { fallbackKeys }), job.outputPath)
+        await printHtmlToPdf(blocksToHtml(blocks, { fallbackKeys }), job.outputPath, path.join(jobsDir, '..', 'tmp'))
         console.log(`[pipeline] chromium typeset done in ${((Date.now() - t1) / 1000).toFixed(1)}s`)
       } catch (err) {
         console.warn(`[pipeline] chromium typeset failed (${(err as Error).message}); falling back to pdf-lib`)

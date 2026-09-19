@@ -75,7 +75,7 @@ npm run dist
 如果不想在App内下载，可以手动将 `.gguf` 文件放到以下目录：
 
 - **开发模式**：`<项目根目录>/models/`
-- **安装后**：`<安装目录>/data/models/`（通常是 `C:\Users\<用户名>\AppData\Local\Programs\EnTransfer\data\models\`）
+- **安装后**：`<安装目录>/models/`（默认 `C:\Users\<用户名>\AppData\Local\Programs\EnTransfer\models\`）
 
 放置后重启App，会自动识别模型并显示"已就绪"。
 
@@ -137,7 +137,23 @@ EnTransfer/
 - 仅支持**英文→中文**翻译
 - 表格/公式/图片保留原文，不翻译
 - 首次运行需要下载模型（约1.2GB）
-- GPU加速需要Vulkan兼容显卡和最新驱动
+- GPU加速需要Vulkan兼容显卡和最新驱动；翻译中途GPU异常会自动切换CPU继续
+
+## 数据位置与卸载零残留
+
+所有运行期文件都跟随安装目录，卸载后不留任何残留：
+
+| 内容 | 位置 |
+|---|---|
+| 模型 | `<安装目录>/models/` |
+| 任务队列/断点检查点 | `<安装目录>/data/jobs/` |
+| 翻译缓存（内容寻址） | `<安装目录>/data/translations/` |
+| 输出PDF（默认） | `<安装目录>/data/output/`（可在设置改到别处） |
+| 设置 | `<安装目录>/data/settings.json` |
+| Chromium 会话数据 | `<安装目录>/data/session/` |
+| 排版临时文件 | `<安装目录>/data/tmp/`（用后即删） |
+
+卸载器会显式删除 `models\` 与 `data\`（含模型下载与全部中间产物），并清理旧版本可能遗留在 `%APPDATA%\EnTransfer` 的数据。开发模式同理：一切都在项目根目录内。
 
 ## 开发进度
 

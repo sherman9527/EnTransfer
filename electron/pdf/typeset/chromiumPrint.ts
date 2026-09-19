@@ -12,12 +12,16 @@ import { join } from 'node:path'
 
 const PRINT_TIMEOUT_MS = 90_000
 
-export async function printHtmlToPdf(html: string, outPath: string): Promise<void> {
+export async function printHtmlToPdf(html: string, outPath: string, workTmpDir?: string): Promise<void> {
   const electronVer = (process.versions as Record<string, string | undefined>).electron
   if (!electronVer) throw new Error('chromiumPrint: not running inside Electron')
   const { BrowserWindow } = require('electron') as typeof import('electron')
 
-  const file = join(tmpdir(), `entransfer-compose-${Date.now()}-${Math.random().toString(36).slice(2)}.html`)
+  // Intermediate HTML belongs to the portable data root (workTmpDir); the
+  // system temp is only a last-resort default for harness use.
+  const dir = workTmpDir ?? tmpdir()
+  await fsp.mkdir(dir, { recursive: true })
+  const file = join(dir, `entransfer-compose-${Date.now()}-${Math.random().toString(36).slice(2)}.html`)
   await fsp.writeFile(file, html, 'utf8')
   let win: import('electron').BrowserWindow | null = null
   try {

@@ -22,9 +22,16 @@ const modelsDir = () => join(appRoot(), 'models')
 const dataRoot = () => join(appRoot(), 'data')
 const jobsDir = () => join(dataRoot(), 'jobs')
 const outputDir = () => join(dataRoot(), 'output')
+const tmpDir = () => join(dataRoot(), 'tmp')
+
+// Chromium/Electron session data (HTTP cache, Local Storage, GPU cache) lives
+// in %APPDATA%\EnTransfer by default — it must follow the portable root so an
+// uninstall leaves nothing behind. Set before app ready to cover all Chromium
+// subsystems; the legacy %APPDATA% copy is removed by the NSIS uninstaller.
+app.setPath('userData', join(dataRoot(), 'session'))
 
 function ensureDataDirs(): void {
-  for (const dir of [jobsDir(), modelsDir(), outputDir()]) {
+  for (const dir of [jobsDir(), modelsDir(), outputDir(), tmpDir()]) {
     mkdirSync(dir, { recursive: true })
   }
 }
