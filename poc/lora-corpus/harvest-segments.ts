@@ -48,13 +48,35 @@ function isCaption(line: string): boolean {
   )
 }
 
+// Z-Library / torrent-watermark spam that appears in front+back matter
+function isSpam(line: string): boolean {
+  const t = line.trim()
+  return (
+    /z-?\s?library|singlelogin|go-to-zlibrary|libgen|annas-?archive/i.test(t) ||
+    /downloaded from|gateway to knowledge|Accessible for everyone/i.test(t) ||
+    /欢迎加\S*云原生社区|扫码|关注公众号|加微信|加QQ群|勘误表|读者服务/i.test(t) ||
+    /^[\w.-]+\.(se|ru|io|org)\s/i.test(t)
+  )
+}
+
 async function run(): Promise<void> {
   const ns = await import('pdfjs-dist/legacy/build/pdf.js')
   const mod: any = (ns as any).default ?? ns
   const arg = process.argv[2]!
   const outArg = process.argv[3]!
   const pdfPath = path.isAbsolute(arg) ? arg : path.join(path.resolve(process.cwd(), '..', '..', 'good book'), arg)
-  const pdf = await mod.getDocument({ data: new Uint8Array(fs.readFileSync(pdfPath)), isEvalSupported: false }).promise
+  // pdfjs needs the bundled cMaps + standard fonts to decode CJK / built-in
+  // fonts, or whole pages silently yield no text. poc always runs from the
+  // project root, so resolve the assets relative to cwd (require.resolve of a
+  // package subpath breaks under esbuild's externals).
+  const pkgDir = path.join(process.cwd(), 'node_modules', 'pdfjs-dist')
+  const pdf = await mod.getDocument({
+    data: new Uint8Array(fs.readFileSync(pdfPath)),
+    isEvalSupported: false,
+    cMapUrl: path.join(pkgDir, 'cmaps') + '/',
+    cMapPacked: true,
+    standardFontDataUrl: path.join(pkgDir, 'standard_fonts') + '/'
+  }).promise
   const from = Number(process.argv[4] ?? 1)
   const to = Number(process.argv[5] ?? pdf.numPages)
 
@@ -92,7 +114,7 @@ async function run(): Promise<void> {
       joined = despaceCJK(joined).replace(/\s+/g, ' ').trim()
       const cjk = [...joined].some((c) => CJK.test(c))
       const min = cjk ? 14 : 40
-      if (joined.length >= min && !isNumbery(joined) && !isCaption(joined)) {
+      if (joined.length >= min && !isNumbery(joined) && !isCaption(joined) && !isSpam(joined)) {
         segments.push({ page: pageNo, text: joined })
       }
       para = []

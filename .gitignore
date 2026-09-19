@@ -116,3 +116,7 @@ poc/speed-v3/pylib/
 poc/speed-v3/node_modules/
 .qoder/
 poc/doclayout-poc/*.png
+poc/models/
+poc/models-bench/venv/
+poc/models-bench/*.bin
+poc/models-bench/ct2/
