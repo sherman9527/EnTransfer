@@ -1,0 +1,226 @@
+Warning: Cannot polyfill `DOMMatrix`, rendering may be broken: "Error: Cannot find module 'canvas'
+Require stack:
+- C:\Users\_Cole\Desktop\ADEMO\EnTransfer\node_modules\pdfjs-dist\legacy\build\pdf.js
+- C:\Users\_Cole\Desktop\ADEMO\EnTransfer\.scratch\qc.cjs".
+Warning: Cannot polyfill `Path2D`, rendering may be broken: "Error: Cannot find module 'canvas'
+Require stack:
+- C:\Users\_Cole\Desktop\ADEMO\EnTransfer\node_modules\pdfjs-dist\legacy\build\pdf.js
+- C:\Users\_Cole\Desktop\ADEMO\EnTransfer\.scratch\qc.cjs".
+[llama] contextSize=4096 (GPU)
+[llama] load: device=gpu gpu=vulkan gpuLayers=max threads=12
+load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+PASS           num1       该集群包含4,096个物品，分布在128个节点和32个机架上。
+PASS           num2       延迟从350毫秒降至45毫秒，实现了87%的提升。
+PASS           sec        请参见3.2.8节的回滚策略。
+PASS           neg1       这种做法在小型团队中并不罕见，尽管它并不理想。
+PASS           neg2       用于档案装订的纸张必须为酸性-free。
+PASS           neg3       没有任何东西阻止了部署失败地进行。
+PASS           url1       如需详细信息，请参见 https://example.com/docs/guide-v2#setup 在提交问题前。
+PASS           url2       联系我们至 team@manning.example.com 或 anytime www.manning.com
+PASS           cond1      如果连续两次构建失败，流水线将停止并通知值班工程师。
+PASS           cond2      除非球队信任其教练，否则任何流程变更都不会生效。
+PASS           abbr1      工程经理（EM）指导了两位个体贡献者（ICs），他们后来成为了副总裁（VP）的候选人。
+PASS           abbr2      我们跟踪目标和关键结果（OKRs）以及关键绩效指标（KPIs），以证明持续集成（CI）/持续部署（CD）投资的回报率（ROI）。
+PASS           cite1      仆人式领导仍然存在争议（Greenleaf, 1977；Pressman, 2006）。
+PASS           figref     Figure 6.1 展示了以下所述的三相转变。
+PASS           cell1      Q3收入增长
+PASS           passive    该遗留的API已于两个月前被弃用，改用gRPC接口。
+PASS           longctx    由于值班轮班制度压缩了服务构建者与运营者之间的反馈循环，携带 Pager 的工程师倾向于编写更可靠的代码，偏好乏味的技术，并从第一次提交开始
+PASS           order1     首先，运行测试套件。其次，将构件进行阶段。最后，通知利益相关者。
+PASS           q1         授权是否会随着时间而削弱技术技能？
+PASS           quot       “完成比完美更好”，设计主管常常提醒团队。
+PASS           money      100万美元的预算和25万欧元的超支在财政年度内发生。
+PASS           code       在重启守护进程之前，运行 `kubectl apply -f pod.yaml`。
+PASS           listfrag   入职检查清单：笔记本电脑、账户、工牌。
+PASS           det2       目标与关键结果（OKR）评审揭示了平台团队与产品团队之间存在错位的激励机制。
+PASS           titlecase  远程领导分布式团队的最佳实践
+
+译文：
+PASS           range      该报告涵盖第12-45页以及第2至4章。
+
+suite: 26/26 pass; validator would-flag: 0
+determinism repeat: IDENTICAL
+[
+  {
+    "id": "num1",
+    "cat": "numbers",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "num2",
+    "cat": "numbers",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "sec",
+    "cat": "numbers",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "neg1",
+    "cat": "negation",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "neg2",
+    "cat": "negation",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "neg3",
+    "cat": "negation",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "url1",
+    "cat": "url",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "url2",
+    "cat": "url",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "cond1",
+    "cat": "conditional",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "cond2",
+    "cat": "conditional",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "abbr1",
+    "cat": "terminology",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "abbr2",
+    "cat": "terminology",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "cite1",
+    "cat": "citation",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "figref",
+    "cat": "caption",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "cell1",
+    "cat": "table-cell",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "passive",
+    "cat": "wordness",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "longctx",
+    "cat": "long-context",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "order1",
+    "cat": "structure",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "q1",
+    "cat": "structure",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "quot",
+    "cat": "punctuation",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "money",
+    "cat": "numbers",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "code",
+    "cat": "identifier",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "listfrag",
+    "cat": "table-cell",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "det2",
+    "cat": "determinism-pair",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "titlecase",
+    "cat": "wordness",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  },
+  {
+    "id": "range",
+    "cat": "numbers",
+    "pass": true,
+    "failed": [],
+    "valReasons": []
+  }
+]

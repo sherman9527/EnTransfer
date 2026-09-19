@@ -1,0 +1,44 @@
+pages=353 in 4.6s
+{
+  "totalBlocks": 1771,
+  "paragraphs": 1413,
+  "startsLowercase": {
+    "n": 116,
+    "samples": [
+      "available (see the following list), I found nothing specific",
+      "people aspect. Beyond spreadsheets and boardroom decisions, ",
+      "training sessions, along with cross-training between backend"
+    ]
+  },
+  "noTerminalPunct": {
+    "n": 348,
+    "samples": [
+      " comprehensive offboarding checklist for departing employees",
+      "en ordered in quantity. For more information, please contact",
+      "O Box 761 Shelter Island, NY 11964 Email: orders@manning.com"
+    ]
+  },
+  "headingMergedInside": {
+    "n": 3,
+    "samples": [
+      "12.2.10 Follow the away-team model The away-team mode",
+      "12.2.11 Improve accessibility Accessibility ensures t",
+      "12.2.12 Learn from mistakes When you face unexpected "
+    ]
+  },
+  "overlongBlocks": {
+    "n": 57,
+    "max": 3125
+  },
+  "tinyParagraphs": 126,
+  "headings": 174,
+  "lists": 165,
+  "codeBlocks": 1,
+  "tablesDetected": 9,
+  "tableCaptionsInText": 12,
+  "figureCaptionsInText": 29,
+  "formulaLeakIntoParagraphs": 0,
+  "pageOrderRegressions": 0,
+  "tocLeaks": 0,
+  "imagesMatched": 9
+}
