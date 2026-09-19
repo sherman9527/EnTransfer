@@ -83,6 +83,12 @@ pdfzh 的**架构性选择**（Typst、PyMuPDF、外部 llama-server 进程、GB
 - **保留**：`layout-detector.ts` + `page-renderer.ts`（均带独立单测 test-detector/test-render，绿色）、全部 POC、体积实测数据。
   `onnxruntime-node`/`@napi-rs/canvas` 移入 devDependencies（模块/测试可用，**不进安装包**），模型 asset 移除。verify 回 40 项、typecheck/build/regression 全绿。
 - **重启 C1 的前置条件**（下一步）：区域文本排除须**只删 label 样短行、保护表格/长句**；且需一张"图 vs 表"判别更准的检测器或加 IoU-与-已检测表格 保护；全书 ≥3 语料回归验证净收益后再上线。
+
+#### #21 长尾攻坚（2026-09-19，`poc/eval-2026/region-density.ts`）—— 两个硬结论
+1. **渲染本身有隐藏坑（已定位，未上线）**：pdfjs 在 Node 渲染时，部分页（含 pattern/soft-mask/form-XObject）会经 `NodeCanvasFactory` 触发 `require('canvas')` 申请**离屏画布**——全书 353 页里存在此类页。当前 `canvas-stub.js` 是空 `{}`（文本抽取够用），一旦接线渲染就会崩。修法：canvas-stub 改 `module.exports=require('@napi-rs/canvas')` + 把 @napi-rs/canvas 从 devDep 转正式依赖随包发布（实测：改后 353 页渲染 0 崩溃）。**此改动与"接线+打包"强绑定，单独改会破坏现网文本抽取，故本轮不动。**
+2. **ink 密度不能干净区分"误判表"与"真图表"**：94 个 image/chart 区里，p55 误判表 ink=18.1%，但 p138/p147 **真图表** ink=17~19%、p148 图标网格 ~33%——同档。p57 真矢量图 ink=5.6%（低）。所以"高 ink=表→跳过"会误伤真图表。
+3. **候选保守门（待验证）**：只栅格化**低 ink(≤12%) 稀疏区**（43/94，多为线稿示意图如 p57），高 ink 一律不碰 → 零表格误伤风险、稳定回捞干净示意图；代价是漏掉密集图表（饼图/柱图）。**需 ≥3 语料 + 全书目视确认"低 ink 区确无表格/正文"后方可上线**，本轮未做该验证 → 仍不上线。
+4. 现状：接线/打包保持回退（无回归）；canvas-stub 维持空桩；`region-density.ts` 探针 + 数据入档。#21 仍 pending，明确剩余 = 保守门的全语料验证 + 与渲染依赖打包一起做。
 - **体积实测**：win-x64 CPU 仅需 `onnxruntime.dll`(27.4MB)+`binding.node`(0.3MB)；DirectML/dxcompiler/dxil(~36MB) 属 GPU EP，after-pack 剪。
   净增 **≈ +20MB 压缩**（模型 4.7MB 另计），安装器 97→约 117MB。**高于当初批准的 ~+10MB**（因省体积的 web 路线崩了）→ 已向用户回报此偏差待定。
 4. **新方案（把 C1 并入 P2 的 PP-DocLayout-S）**：用轻量版面检测 ONNX（PP-DocLayout-S，~10–30MB，CPU 每页几十 ms）**直接输出 figure/table/formula bbox**，绕过脆弱的几何聚类；拿到 bbox 后仍用 Chromium `render({clip})` 栅格化搬运。**C1 的成败现在等价于 PP-DocLayout-S 试验的成败** → P2#PP-DocLayout 提升为 C1 的实现路径，优先级提到 C2 之前。
