@@ -48,3 +48,31 @@
 - 前 30 页冷跑：201 单元，批次 13/0 回退，校验回退 1.5%，~0.8s/单元，30→13 页(压缩 0.43)。
 - 翻译质量：数据工程领域流畅准确（"我们为本书设立了网页，其中列出勘误表…"），URL/邮箱/技术 token 保留完好。
 - C1 保守门：文本密集区 0 图（**无误判、无假阳**），符合设计。→ 多语料下 C1 保守门**无回归**。
+
+## 7. MiniCPM5-2B 实测（2026-09-19，ModelScope 下载，用户点名要测）
+> 结论先行：**MiniCPM5-2B 质量确实更好，但在我们的部署栈上慢到不可用（3.5 tok/s），且它的加速路径我们用不了。** 不是它不如 Qwen3，是它在我们这套栈上跑不动。
+
+**A/B（同 engine、同 disableReasoning、同 GPU）**：
+| 指标 | Qwen3-1.7B-Q4 | MiniCPM5-2B-Q4 |
+|---|---|---|
+| quality-cases(26) | 26/26 | 25/26（仅 range 挂） |
+| 速度(GPU/Vulkan) | **53.5 tok/s** | **3.5 tok/s**（15×慢） |
+| 速度(CPU) | ~10–15（估） | **~1–2 tok/s** |
+| GPU 层卸载 | 29/29 | **43/43（全卸载）** |
+| 体积 | 1.28GB | 1.49GB |
+| 领域词 | ❌ "team→球队/manager→教练" | ✅ "团队/管理者" |
+
+**为什么全量卸载到 GPU 还这么慢**（实测非猜测）：
+- 两模型都 `offloaded N/N layers to GPU`，但 MiniCPM5 GPU 3.5 vs CPU 1–2 → **GPU 只快 ~2×**（Qwen3 是 ~4–5×）。说明 Vulkan 后端对 MiniCPM5 的算子加速很差：层虽"卸载"，层内关键算子（GQA 16Q/2KV、大词表 LM head、128K RoPE 路径）在 Pascal-Vulkan 上退化/回退 CPU，逐层同步把吞吐拖垮。
+- MiniCPM5 更深（43 vs 29 层）+ 510 special tokens + 128K 上下文配置，进一步放大。
+
+**拓展性 / 它比 Qwen3 强在哪（诚实）**：
+- **优势真实**：中文/领域更准（修了 team/manager 类错）、原生 **128K 上下文**、官方称 2B-class SOTA（avg 53.9，可与 4B 竞争）、**开放训练数据**（UltraX/UltraData-SFT/RL，对 LoRA 极有用）。
+- **官方加速 = DSpark 草稿模型 + SGLang 投机解码**（`--speculative-algorithm DSPARK`），**不是 MTP**（模型无 MTP 头）。但 SGLang 需要现代 CUDA GPU + 独立服务栈——**我们（GTX1060 Pascal + node-llama-cpp + Electron 内嵌）用不了**。
+- node-llama-cpp 3.21.1 也没给它 Vulkan 高效内核（实测 3.5 tok/s）。→ **在我们栈上，MiniCPM 的速度硬伤无解**，除非换推理后端（SGLang/新 CUDA 卡）。
+
+**判定**：EnTransfer 现栈继续用 **Qwen3-1.7B-Q4**（唯一能在 1060 上 53 tok/s 的）。MiniCPM5 记为"质量更好但栈不兼容"的候选——**若将来上云/换 CUDA 卡跑 SGLang，MiniCPM5+DSpark 是明显升级**。当前它的领域优势我们改用 **few-shot / LoRA 喂给 Qwen3** 来追（见 §8）。
+
+## 8. 由 A/B 得到的具体行动
+- Qwen3 暴露的**唯一实质质量短板 = 领域多义词**（team→球队、manager→教练）。这正是 few-shot（加技术语境范例）和 LoRA（用户英文 PDF 微调）能精准打的点，且 MiniCPM 证明"天花板更高"值得追。
+- 下一步（零风险）：few-shot 范例 A/B，目标修 team/manager 类，且不掉速（范例进 system 前缀，被 prefix-KV 复用，边际成本≈0）。
