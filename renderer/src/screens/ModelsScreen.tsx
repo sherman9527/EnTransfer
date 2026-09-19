@@ -242,7 +242,9 @@ function ModelCard({
           </ActionBtn>
         )}
         {downloading && (
-          <ActionBtn onClick={onCancel} disabled={busy}>
+          // Cancel must stay clickable DURING the download — `busy` is held for
+          // the whole download, so gating on it made cancel permanently disabled.
+          <ActionBtn onClick={onCancel}>
             <XCircle size={14} /> 取消
           </ActionBtn>
         )}

@@ -32,6 +32,9 @@ export function SettingsScreen() {
   }, [fetchSettings, fetchModels])
 
   const availableModels = models.filter((m) => m.status === 'available')
+  // Show the ACTUAL default model (matches the 默认引擎 badge on the Models
+  // screen), not just the first available one (bug #10).
+  const currentModel = models.find((m) => m.id === settings.defaultModel) ?? availableModels[0]
   const mirrorId =
     MIRRORS.find((m) => m.url === settings.mirrorSource)?.id ?? 'modelscope'
 
@@ -63,7 +66,7 @@ export function SettingsScreen() {
           </p>
         ) : (
           <p className="text-sm text-ink2">
-            当前使用 <span className="font-medium text-ink">{availableModels[0].name}</span>（{availableModels[0].size}）。
+            当前使用 <span className="font-medium text-ink">{currentModel.name}</span>（{currentModel.size}）。
           </p>
         )}
       </section>
