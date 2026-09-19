@@ -52,6 +52,20 @@ pdfzh 的**架构性选择**（Typst、PyMuPDF、外部 llama-server 进程、GB
 - **召回：真实题注页 33（严格行首 `Figure N.：` 规则，剔除 11 个正文交叉引用），检出 31 → 93.9%；现状位图法仅 18.2%**。仅 50ms/页（33 页含渲染 1.7s）。
 - 目视核对 2 个"未命中"页（135/143）：均为句首交叉引用（"Figure 5.2 shows…"）非真图 → **检测器对真图召回≈100%**，2 例是**题注检测**的假阳，不是漏检。
 - **判定：C1 达标（≥70%）**，采纳检测器路线。**遗留成本待测**：生产集成需 onnxruntime-web(WASM)+模型，对"压制体积"是真实增量 → 下一步先量体积 delta 再定嵌入形态（见 #20 后续）。
+
+#### C1 生产集成衬底实测（2026-09-19，`poc/doclayout-poc/electron-ort.cjs`）
+- **ORT-web（wasm in renderer）路线：否决**。
+  - 1.30：`InferenceSession.create` 让 renderer **硬崩溃**（exit `-36861`）。已逐一排除 COOP/COEP 自定义
+    `app://` scheme（`crossOriginIsolated=true` ✓）、wasm/模型同域 ✓、`numThreads=1` ✓、SAB feature flag ✓ —— 仍崩。
+    根因：1.30 只有 pthreads 版 wasm。
+  - 1.17.3（有非线程 `ort-wasm-simd.wasm`）：不崩了，但 nodeIntegration 下 `require` 命中 Node 构建 / UMD 全局拿不到，
+    陷入 Electron 渲染进程模块加载泥潭。**结论：不要在渲染进程跑 ORT**。
+- **ORT-node（原生 CPU EP，main 进程）路线：可用 ✓（衬底定案）**。main 里 `require('onnxruntime-node')` 跑 p57：
+  0.209s（含加载），figure 框 `[336,49,475,417]` 与 Python POC `[336.2,50.4,476.3,413.1]` 吻合。main 是 Node，行为=纯 node，无 wasm/线程/模块问题。
+- **集成架构（定）**：页面像素 = 复用隐藏 Chromium（pdf.js canvas→PNG dataURL，POC 里 CP2 已证 pdf.js 在渲染进程可用）→ IPC 回 main；
+  推理 = main 进程 onnxruntime-node（载入一次，常驻）。clip 栅格化同一块 Chromium 出图。**零新增渲染依赖**。
+- **体积实测**：win-x64 CPU 仅需 `onnxruntime.dll`(27.4MB)+`binding.node`(0.3MB)；DirectML/dxcompiler/dxil(~36MB) 属 GPU EP，after-pack 剪。
+  净增 **≈ +20MB 压缩**（模型 4.7MB 另计），安装器 97→约 117MB。**高于当初批准的 ~+10MB**（因省体积的 web 路线崩了）→ 已向用户回报此偏差待定。
 4. **新方案（把 C1 并入 P2 的 PP-DocLayout-S）**：用轻量版面检测 ONNX（PP-DocLayout-S，~10–30MB，CPU 每页几十 ms）**直接输出 figure/table/formula bbox**，绕过脆弱的几何聚类；拿到 bbox 后仍用 Chromium `render({clip})` 栅格化搬运。**C1 的成败现在等价于 PP-DocLayout-S 试验的成败** → P2#PP-DocLayout 提升为 C1 的实现路径，优先级提到 C2 之前。
 5. **回退预案**：若 PP-DocLayout-S 召回也不达 70% 或体积/耗时不划算，则 C1 整体归 §2 否决表，维持"宁缺毋滥（矢量图暂缺，不产垃圾）"现状。
 

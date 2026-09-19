@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ort detect</title></head>
+<body>
+<script>
+(async () => {
+  const { ipcRenderer } = require('electron')
+  const fs = require('fs')
+  const path = require('path')
+  const url = require('url')
+  const ROOT_CWD = process.cwd()
+
+  const MEAN = [0.485, 0.456, 0.406]
+  const STD = [0.229, 0.224, 0.225]
+  const CLASSES = ['paragraph_title','image','text','number','abstract','content','figure_title','formula','table','table_title','reference','doc_title','footnote','header','algorithm','footer','seal','chart_title','chart','formula_number','header_image','footer_image','aside_text']
+  const FIGURE_LIKE = new Set([1, 8, 18])
+
+  ipcRenderer.on('go', async (_e, cfg) => {
+    console.log('CP1 handler entered')
+    const pdfjsLib = require(path.join(ROOT_CWD, 'node_modules/pdfjs-dist/legacy/build/pdf.js'))
+    console.log('CP2 pdfjs required')
+    const _ortMod = require(path.join(ROOT_CWD, 'node_modules/onnxruntime-web/dist/ort.min.js'))
+    const ort = _ortMod.env ? _ortMod : _ortMod.default
+    console.log('CP3 ort required (browser bundle); has env=' + !!ort.env)
+    try {
+      const t0 = Date.now()
+      // wasm + model must be same-origin (app://) as the page, not file://
+      ort.env.wasm.wasmPaths = 'app://local/'
+      ort.env.wasm.numThreads = 1
+      console.log('CP4 wasmPaths set, crossOriginIsolated=' + self.crossOriginIsolated)
+      const modelUrl = 'app://local/pp_doclayout_s.onnx'
+      const session = await ort.InferenceSession.create(modelUrl, { graphOptimizationLevel: 'all' })
+      console.log('CP5 session created')
+      const inputNames = session.inputNames
+      ipcRenderer.send('ort-log', `session ready in ${Date.now() - t0}ms inputs=${inputNames.join(',')}`)
+
+      pdfjsLib.GlobalWorkerOptions.workerSrc = url.pathToFileURL(cfg.pdfjsWorker).toString()
+      const data = new Uint8Array(fs.readFileSync(cfg.pdfPath))
+      const pdf = await pdfjsLib.getDocument({ data, isEvalSupported: false }).promise
+
+      const out = []
+      for (const pno of cfg.pages) {
+        const page = await pdf.getPage(pno)
+        const vp = page.getViewport({ scale: 2.0 })
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height)
+        const ctx = canvas.getContext('2d')
+        await page.render({ canvasContext: ctx, viewport: vp }).promise
+        const { data: px } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+
+        // bilinear-resize RGBA -> 480x480 RGB, normalize CHW
+        const im480 = document.createElement('canvas'); im480.width = 480; im480.height = 480
+        const c2 = im480.getContext('2d'); c2.drawImage(canvas, 0, 0, 480, 480)
+        const rgb = c2.getImageData(0, 0, 480, 480).data
+        const H = 480, W = 480
+        const chw = new Float32Array(3 * H * W)
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          const i = (y * W + x) * 4
+          for (let c = 0; c < 3; c++) chw[c * H * W + y * W + x] = (rgb[i + c] / 255 - MEAN[c]) / STD[c]
+        }
+        const tensor = new ort.Tensor('float32', chw, [1, 3, H, W])
+        const sf = new ort.Tensor('float32', new Float32Array([480 / canvas.height, 480 / canvas.width]), [1, 2])
+        const feeds = { image: tensor, scale_factor: sf }
+        const t1 = Date.now()
+        const res = await session.run(feeds)
+        const keys = Object.keys(res)
+        const dets = res[keys[0]]
+        const num = res[keys[1]]
+        const n = num ? Number(num.data[0]) : dets.dims[0]
+        const boxes = []
+        for (let r = 0; r < n; r++) {
+          const cid = dets.data[r * 6], score = dets.data[r * 6 + 1]
+          const x1 = dets.data[r * 6 + 2], y1 = dets.data[r * 6 + 3], x2 = dets.data[r * 6 + 4], y2 = dets.data[r * 6 + 5]
+          if (score < 0.3) continue
+          if (!FIGURE_LIKE.has(cid)) continue
+          boxes.push([CLASSES[cid], +score.toFixed(3), [x1 / 2, y1 / 2, x2 / 2, y2 / 2].map((v) => +v.toFixed(1))])
+        }
+        out.push({ page: pno, ms: Date.now() - t1, figureBoxes: boxes.length, boxes: boxes.slice(0, 6), outKeys: keys, outDims: dets.dims })
+        await page.cleanup()
+      }
+      ipcRenderer.send('ort-result', { ok: true, totalMs: Date.now() - t0, results: out })
+    } catch (err) {
+      ipcRenderer.send('ort-result', { ok: false, error: String(err && err.stack || err) })
+    }
+  })
+  ipcRenderer.send('renderer-ready')
+})()
+</script>
+</body>
+</html>
