@@ -84,3 +84,25 @@
 - ❌ **且掉速**：micro-bench 57.4 → 47.4 tok/s（−17%，更长 system 前缀每单元重算）。
 - 判定：净收益为负（修 1 类、坏 1 类、慢 17%）→ **不采纳**。team/manager 这类领域多义词的正解是 **LoRA**（用你的英文 PDF 微调，既修多义又不牺牲其它、几乎不额外耗时）；few-shot 是廉价近似，此处不划算。
 - KV q8_0：仅省显存、非质量/速度增益（现 2048 上下文已够，不触发更长切分），**暂不启用**。
+
+## opus-mt-en-zh (Helsinki, 600M) via CTranslate2 int8 — 2026-09-19 — ❌ REJECTED
+
+自测（不信报告）。下载 Helsinki-NLP/opus-mt-en-zh → CT2 int8（转换 9.2s）→
+翻译 poc/speed-v3/corpus.json 的 80 段 Manning 英文（同一套 ≥50 例基准）。
+产物：poc/models-bench/out-opus-mt.txt。
+
+- 速度：CPU int8 1.23 段/秒（~224 中文字/秒）——**单看速度尚可**，与 Qwen3-GPU 同量级。
+- 质量：**灾难性退化重复**，完全不可用：
+  - "更新 。 更新 。 更新 。…"（无限循环）
+  - 邮箱/URL 变纯噪声："命令@manning. comcomcomcoms:sords@…"
+  - 长句复读："以任何形式或以任何形式…"、"曼宁的政策是让曼宁的政策是让…"
+  - 专名打碎："Marddddddddddddddddddd"
+- 根因：Marian/NMT 对长、域外段落触发经典 repetition degeneration；且 NMT **无法执行管线指令**
+  （代码/表格原样保留、术语锁定、上下文），也处理不了我们编号批次的多段拼接。
+- 判定：**不采纳**。Qwen3-1.7B-Q4 仍是正确基座。
+
+## NLLB-200-3.3B — 结论预判（未跑，待用户定夺）
+
+opus-mt 的失败 + 结构性论据已足以回答"专用 NMT 是否更好"= 否。NLLB-3.3B 更大更慢
+(3.3B vs 1.7B)、同为非指令式 NMT、同样易复读，几乎不可能改变结论，且下载/转换成本高
+(~13GB, hf-mirror 慢)。建议：除非用户坚持，**不投入 NLLB 基准**，维持 Qwen3。
