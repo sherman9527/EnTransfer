@@ -15,6 +15,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { joinBatch, splitBatch } from './batch-format.ts'
+import { isGarbageText, garbageRatio } from './text-garbage.ts'
 import { validateModelOutput, validateRestored } from './pdf/validate.ts'
 import { TranslationCache } from './models/translation-cache.ts'
 import { isHardwareError } from './models/engine-errors.ts'
@@ -141,6 +142,20 @@ console.log('R6 failover: error classification')
   check('VRAM OOM → hardware', isHardwareError('out of memory allocating 1024 MB'))
   check('generic generation error → NOT hardware', !isHardwareError('Grammar validation failed: parser error at byte 4'))
   check('empty/undefined-ish → NOT hardware', !isHardwareError(String(undefined)))
+}
+
+// ---------------------------------------------------------------------------
+// R15 — garbage-node filter (pdfzh §6.3 borrow): undecodable text never
+// reaches the model (it "translates" into plausible-looking junk)
+// ---------------------------------------------------------------------------
+console.log('R15 garbage filter: undecodable-font gate')
+{
+  check('replacement chars >20% → garbage', isGarbageText('This is \uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD\uFFFD broken text here'))
+  check('private-use-area run → garbage', isGarbageText('\uE000\uE001\uE002\uE003\uE004\uE005\uE006\uE007 some readable words'))
+  check('single \uFFFD in long clean paragraph → NOT garbage', !isGarbageText('The engineering manager ships software through her team and one \uFFFD stray replacement char in a long sentence stays below threshold.'))
+  check('normal prose → NOT garbage', !isGarbageText('Agile teams iterate on working software and gather feedback every sprint.'))
+  check('empty/whitespace → NOT garbage (handled upstream)', !isGarbageText('   '))
+  check('ratio is bounded 0..1', garbageRatio('\uFFFD\uFFFD') <= 1 && garbageRatio('abc') >= 0)
 }
 
 // ---------------------------------------------------------------------------

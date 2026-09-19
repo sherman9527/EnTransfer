@@ -31,6 +31,7 @@ import { validateModelOutput, validateRestored } from './pdf/validate'
 import { TranslationCache } from './models/translation-cache'
 import { freezeProtected, restorePlaceholders } from './pdf'
 import { joinBatch, splitBatch } from './batch-format.ts'
+import { isGarbageText } from './text-garbage.ts'
 import { expandAbbreviations } from './pdf/capture/glossary'
 import type { ModelManager } from './models/manager'
 
@@ -93,8 +94,9 @@ interface TransTask {
  * headers ("Status") and risked row/col drift — recognized + re-typeset nicely,
  * never translated.
  */
-function buildTasks(blocks: ContentBlock[]): TransTask[] {
+function buildTasks(blocks: ContentBlock[]): { tasks: TransTask[]; garbage: Array<{ id: string; page: number }> } {
   const tasks: TransTask[] = []
+  const garbage: Array<{ id: string; page: number }> = []
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i]
     if (b.type === 'code' || b.type === 'image' || b.type === 'table' || b.type === 'formula') continue
@@ -102,18 +104,20 @@ function buildTasks(blocks: ContentBlock[]): TransTask[] {
     if (b.type === 'list') {
       const items = b.items ?? []
       for (let j = 0; j < items.length; j++) {
-        if (items[j].trim().length > 0) {
-          tasks.push({ id: `b${i}-${j}`, sourceText: items[j], blockIndex: i, listIndex: j, page })
-        }
+        if (items[j].trim().length === 0) continue
+        // Undecodable text (Type3/CID without ToUnicode) must never reach the
+        // model — it returns plausible-looking junk. Keep verbatim + report.
+        if (isGarbageText(items[j])) { garbage.push({ id: `b${i}-${j}`, page }); continue }
+        tasks.push({ id: `b${i}-${j}`, sourceText: items[j], blockIndex: i, listIndex: j, page })
       }
     } else {
       const text = b.text ?? ''
-      if (text.trim().length > 0) {
-        tasks.push({ id: `b${i}`, sourceText: text, blockIndex: i, page })
-      }
+      if (text.trim().length === 0) continue
+      if (isGarbageText(text)) { garbage.push({ id: `b${i}`, page }); continue }
+      tasks.push({ id: `b${i}`, sourceText: text, blockIndex: i, page })
     }
   }
-  return tasks
+  return { tasks, garbage }
 }
 
 /** Write a translated result back into the blocks array. */
@@ -170,9 +174,9 @@ export function createPipeline(
       if (signal.aborted) return
 
       // Build translation tasks from blocks.
-      const tasks = buildTasks(blocks)
+      const { tasks, garbage } = buildTasks(blocks)
       const total = tasks.length
-      console.log(`[pipeline] ${total} translation tasks`)
+      console.log(`[pipeline] ${total} translation tasks${garbage.length ? `; ${garbage.length} garbage units kept verbatim (undecodable font?)` : ''}`)
 
       await checkpoint.save(job.id, {
         phase: 'extracting',
@@ -370,11 +374,15 @@ export function createPipeline(
         }
       }
       console.log(`[pipeline] prose batches: ${batchHits} ok / ${batchFalls} fell back to single; validation fallbacks: ${fallbacks.length}; cache hits: ${cacheStats.cacheHits}/${total}`)
-      if (fallbacks.length > 0) {
+      const reportRows = [
+        ...fallbacks,
+        ...garbage.map((g) => ({ unit: g.id, page: g.page, reasons: ['garbage-skipped'] }))
+      ]
+      if (reportRows.length > 0) {
         try {
           await fsp.writeFile(
             path.join(checkpoint.getJobDir(job.id), 'quality-report.jsonl'),
-            fallbacks.map((f) => JSON.stringify(f)).join('\n') + '\n',
+            reportRows.map((f) => JSON.stringify(f)).join('\n') + '\n',
             'utf8'
           )
         } catch (err) {
@@ -389,7 +397,7 @@ export function createPipeline(
       job.status = 'typesetting'
       onProgress(job.totalPages, 92)
       const t1 = Date.now()
-      const fallbackKeys = new Set(fallbacks.map((f) => f.unit))
+      const fallbackKeys = new Set<string>([...fallbacks.map((f) => f.unit), ...garbage.map((g) => g.id)])
       try {
         console.log('[pipeline] chromium compose+print starting...')
         await printHtmlToPdf(blocksToHtml(blocks, { fallbackKeys }), job.outputPath, path.join(jobsDir, '..', 'tmp'))
