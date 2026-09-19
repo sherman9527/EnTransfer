@@ -59,6 +59,19 @@ function isSpam(line: string): boolean {
   )
 }
 
+// Running header/footer / TOC-with-glued-pagenum furniture (same shape rules the
+// production capture uses). Without this the LoRA corpus is polluted with lines
+// like "4 | Chapter 1: …" and "How X Works | 89" that mis-align against prose.
+function isFurniture(line: string): boolean {
+  const t = line.trim()
+  return (
+    /^\d{1,4}\s*[|｜]\s*\S/.test(t) ||      // "4 | Chapter 1: …"
+    /\S\s*[|｜]\s*\d{1,4}$/.test(t) ||      // "How X Works | 89"
+    /^\d{1,4}$/.test(t) ||                  // lone page number
+    /^[ivxlcdm]{1,6}$/i.test(t)
+  )
+}
+
 async function run(): Promise<void> {
   const ns = await import('pdfjs-dist/legacy/build/pdf.js')
   const mod: any = (ns as any).default ?? ns
@@ -114,7 +127,7 @@ async function run(): Promise<void> {
       joined = despaceCJK(joined).replace(/\s+/g, ' ').trim()
       const cjk = [...joined].some((c) => CJK.test(c))
       const min = cjk ? 14 : 40
-      if (joined.length >= min && !isNumbery(joined) && !isCaption(joined) && !isSpam(joined)) {
+      if (joined.length >= min && !isNumbery(joined) && !isCaption(joined) && !isSpam(joined) && !isFurniture(joined)) {
         segments.push({ page: pageNo, text: joined })
       }
       para = []

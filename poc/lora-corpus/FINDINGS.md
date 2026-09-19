@@ -63,3 +63,42 @@ GATING DECISION: before investing further in Qwen3-LoRA data, first benchmark
 purpose-built NMT (Helsinki opus-mt-en-zh 600M + CTranslate2, NLLB-200-3.3B)
 against Qwen3-1.7B. If a dedicated translator wins on quality AND speed, LoRA on
 Qwen3 is the wrong target. See docs/MODEL-AB-2026-09.md.
+
+## Embedder alignment experiments (2026-09-19) — ceiling reached
+
+Tried to beat the ~50% token-aligner with semantic alignment on the OpenTelemetry
+gold pair. Configs tested, each measured by eyeballing 8+ random aligned pairs:
+
+| method | granularity | min | pairs | precision |
+|---|---|---|---|---|
+| token IDF + monotone chain | paragraph | 2.0 | ~38 | ~50% |
+| MiniLM multilingual + DP | paragraph | 0.55 | 64 | ~50% |
+| LaBSE + DP | paragraph | 0.60 | 43 | ~45% |
+| LaBSE + DP | sentence | 0.68 | 2 | ~100% (too few) |
+| LaBSE + DP | sentence | 0.55 | 23 | ~35% |
+
+Root cause is NOT embedder quality (LaBSE sanity: true=0.94 false=0.28) — it is the
+**~2.5:1 granularity mismatch**: the ZH translation merges/splits paragraphs
+differently, so no clean 1:1 exists; the monotone DP then returns partial matches
+(e.g. EN "connect in Figure 4-1" ↔ ZH "数据被连接到一个图中" — coincidental 连接).
+
+Conclusion: embedder+DP heuristics cannot reach gold (~90%+) on these two
+differently-typeset books. Real gold data needs a dedicated bitext miner
+(vecmap/Orion with a cross-encoder re-scoring pass) or human curation.
+
+## #24 pipeline status — scaffolding DONE, data is the bottleneck
+
+Built and committed:
+- `harvest-segments.ts` — EN/ZH paragraph harvester (CJK de-space, furniture+spam
+  filter, cMap). GOOD, reusable.
+- `align_embed.py` — embedder (LaBSE/MiniLM) monotone aligner → SFT JSONL. Works,
+  but precision ceiling ~50% (above).
+- `train_lora.py` — QLoRA SFT of Qwen3-1.7B (4-bit, paged AdamW, 6GB-ready).
+  READY TO RUN on gold JSONL; not yet run (no gold data).
+- `eval_gate.sh` — A/B base vs LoRA GGUF on the real engine's quality-cases; adopts
+  only on strict improvement (AGENTS.md gate).
+
+BLOCKER: not enough gold-precision parallel data. AND these 2 tech books don't
+target the motivating polysemy (team→球队 is management-domain, absent here).
+Recommendation: either (a) invest in vecmap-style bitext mining + cross-encoder
+verify, or (b) source parallel books in the TARGET domain, before training.
