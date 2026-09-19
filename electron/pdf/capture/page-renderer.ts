@@ -69,6 +69,11 @@ function configureWorker() {
   workerConfigured = true
 }
 
+/**
+ * pdf.js allocates SCRATCH canvases (patterns, soft masks, form XObjects) via
+ * `require('canvas')` in Node; electron.vite aliases `canvas` -> @napi-rs/canvas
+ * (see canvas-stub.js) so those pages render. No per-render canvasFactory needed.
+ */
 async function getDoc(pdfPath: string): Promise<PdfDoc | null> {
   if (!backend()) return null
   configureWorker()
