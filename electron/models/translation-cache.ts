@@ -67,16 +67,18 @@ export class TranslationCache {
   async put(hash: string, translated: string, tokens: number): Promise<void> {
     const entry: CacheEntry = { key: hash, translated, tokens, createdAt: Date.now() }
     const p = (async (): Promise<void> => {
+      const file = this.pathFor(hash)
+      const tmp = `${file}.${process.pid}.${(this.putSeq += 1)}.tmp`
       try {
-        const file = this.pathFor(hash)
         await fsp.mkdir(dirname(file), { recursive: true })
         // unique tmp name: two concurrent writers of the same hash (resume +
         // fresh run) must not stomp on each other's temp file
-        const tmp = `${file}.${process.pid}.${(this.putSeq += 1)}.tmp`
         await fsp.writeFile(tmp, JSON.stringify(entry), 'utf8')
-        await fsp.rename(tmp, file)
+        await renameWithRetry(tmp, file)
       } catch (err) {
-        // cache write failure is never fatal, but must not be silent
+        // cache write failure is never fatal, but must not be silent; drop the
+        // orphaned tmp so a failed put leaves no residue
+        await fsp.rm(tmp, { force: true }).catch(() => undefined)
         console.warn('[cache] put failed:', (err as Error).message)
       } finally {
         this.pending.delete(hash)
@@ -99,5 +101,26 @@ export class TranslationCache {
       /* empty */
     }
     return n
+  }
+}
+
+/**
+ * Rename with backoff. On Windows a just-written file can be transiently locked
+ * (AV scan / indexer), making the atomic rename fail with EPERM/EBUSY. A few
+ * short retries absorb that; rethrow otherwise so the caller logs + cleans up.
+ */
+async function renameWithRetry(tmp: string, dest: string, tries = 5): Promise<void> {
+  for (let i = 0; i < tries; i++) {
+    try {
+      await fsp.rename(tmp, dest)
+      return
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if ((code === 'EPERM' || code === 'EBUSY') && i < tries - 1) {
+        await new Promise((r) => setTimeout(r, 20 * (i + 1)))
+        continue
+      }
+      throw err
+    }
   }
 }
