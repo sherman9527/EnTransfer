@@ -1,0 +1,319 @@
+### 0
+SRC: Document the important system designs and the processes. If the documentation already exists, make sure it's useful, relevant, and up to date.
+ZH : 记录重要的系统设计和流程。如果已有文档，确保其有用、相关且及时更新。
+
+### 1
+SRC: Hold technical talks or lunch-and-learn sessions that are recorded, and cover the essential details of the systems and projects they’ve worked on in their time at the company.
+ZH : 主持技术讨论或午餐学习会并记录这些会议，同时涵盖他们在公司工作期间所参与的系统和项目的基本细节。
+
+### 2
+SRC: Do pair programming sessions with team members for critical components as needed, especially to share troubleshooting mechanisms for common production issues, ensuring that they are well documented.
+ZH : 在需要时与团队成员进行对等编程会话，特别是为了分享解决常见生产问题的调试机制，并确保它们得到充分记录。
+
+### 3
+SRC: Review any access permissions, and revoke all access to critical systems, infrastructure, and so on for the departing employee.
+ZH : 审查任何访问权限，并撤销离职员工对关键系统、基础设施及其他方面的所有访问权限。
+
+### 4
+SRC: For online information and ordering of this and other Manning books, please visit www.manning.com. The publisher offers discounts on this book when ordered in quantity. For more information, please contact
+ZH : 对于本册及其它Manning书籍的在线信息和订购，请访问www.manning.com。当按批量订购时，出版社会提供折扣。如需更多信息，请联系
+
+### 5
+SRC: Special Sales Department Manning Publications Co. 20 Baldwin Road PO Box 761 Shelter Island, NY 11964 Email: orders@manning.com
+ZH : 特别销售部门曼宁出版公司 20 Baldwin Road PO Box 761 Shelter Island, NY 11964 Email: orders@manning.com
+
+### 6
+SRC: No part of this publication may be reproduced, stored in a retrieval system, or transmitted, in any form or by means electronic, mechanical, photocopying, or otherwise, without prior written permission of the publisher.
+ZH : 本出版物任何部分均不得以任何形式和手段，包括电子、机械、光复制或其他方式，或未经许可复制、存储于检索系统或传输，须获得出版者的书面许可。
+
+### 7
+SRC: Many of the designations used by manufacturers and sellers to distinguish their products are claimed as trademarks. Where those designations appear in the book, and Manning Publications was aware of a trademark claim, the designations have been printed in initial caps or all caps.
+ZH : 许多制造商和卖家用来区分产品名称的标记都被声称是商标。在书中出现这些标记，且当Manning Publications知晓有商标主张时，这些标记已用大写或全大写形式印刷。
+
+### 8
+SRC: Recognizing the importance of preserving what has been written, it is Manning’s policy to have the books we publish printed on acid-free paper, and we exert our best efforts to that end. Recognizing also our responsibility to conserve the resources of our planet, Manning books are printed on paper that is at least 15 percent recycled and processed without the use of elemental chlorine.
+ZH : 认识到保护已写内容的重要性，曼宁的政策是将我们出版的书籍用酸纸打印，我们尽最大努力达成这一目标。同时，我们也认识到保护我们星球资源的责任，曼宁书籍采用的纸张至少含有15%的回收纸，并且不使用元素氯进行处理。
+
+### 9
+SRC: Development editor:Frances Lefkowitz Technical editor:Bruce Bergman Review editor:Radmila Ercegovac Production editor:Andy Marinkovich Copy editor:Keir Simpson Proofreader:Jason Everett Technical proofreader:Srihari Sridharan Typesetter:Gordan Salinovic Cover designer:Marija Tudor
+ZH : 发展编辑：弗朗西斯·莱夫科维茨 技术编辑：布鲁斯·伯格曼 审核编辑：拉德米拉·埃尔塞戈瓦 产品编辑：安迪·马林科维奇 拷贝编辑：凯里·辛普森 校对者：杰森·埃文斯 技术校对者：斯里哈里·斯里德拉纳 印刷工：戈丹·萨林诺 封面设计师：玛丽亚·图多尔
+
+### 10
+SRC: available (see the following list), I found nothing specifically about making a transi- tion from engineering to engineering management. Here are a few of the books on excelling in management that I read or listened to:
+ZH : 可見（見下列表），我發現並沒有關於從工程轉向工程管理的具體內容。這裡有一些我讀過或聽過的關於在管理中卓越的書籍：
+
+### 11
+SRC: First, let’s address the fundamental question of who should read this book. If any of the following categories describes you, you have landed in the appropriate book:
+ZH : 首先，让我们回答一个基本的问题：谁应该阅读这本书。如果以下任何一个类别描述了你，你已经找到了适合你的书：
+
+### 12
+SRC: This book contains 15 chapters divided into three parts dealing with the fundamentals of the EM role (people, product, and process):
+ZH : 这本书包含15章，分为三个部分，分别涉及EM角色的基本要素（人、产品和流程）：
+
+### 13
+SRC: This chapter covers The basics of management and the need for it Key roles and responsibilities of an engineering manager The nuances of leadership versus management Traits that differentiate excellent engineering managers Success metrics Leadership styles
+ZH : 本章涵盖管理的基础知识及其必要性工程经理的关键角色与职责领导力与管理的细微差别卓越工程经理的特质成功指标领导风格
+
+### 14
+SRC: Productivity is most important by engineering management rules, but enjoyment is most important for engineers. One stems from the other.
+ZH : 效率是工程管理规则中最关键的因素，但对工程师而言，乐趣是最关键的。一个源于另一个。
+
+### 15
+SRC: You are the new engineering manager for a team of six engineers. Each engineer is capable of completing 2 tasks per day, for a team total of 12 tasks daily. You, how- ever, think they can do better, and you identify specific opportunities for improve- ment. Through streamlined code reviews, agile development, and skill-enhancing
+ZH : 你成为了一支六人工程师团队的新工程经理。每位工程师每天可完成2项任务，团队总任务量为12项。然而，你认为他们可以做得更好，并识别出具体的改进机会。通过简化代码审查、敏捷开发和技能提升等方式
+
+### 16
+SRC: The core competencies The role of an EM is complex, as it involves juggling numerous, varied responsibilities and mastering skills such as time management, organization, prioritization, and context-switching. In simplified terms, the EM is responsible for executing the team and the projects. In this section, we will delve into the fundamental competencies that char- acterize an effective EM.
+ZH : 核心能力 一名EM的角色复杂，因为它需要同时处理多种、多样化的责任，并掌握诸如时间管理、组织、优先级排序和上下文切换等技能。简而言之，EM负责执行团队和项目。在本节中，我们将深入探讨构成有效EM的核心能力。
+
+### 17
+SRC: BUILDINGTALENT One of the primary responsibilities of an EM is to build talent and nurture the skills of the people on the team. This task involves a multipronged approach:
+ZH : 培养人才 一名EM的主要职责是培养团队成员的能力，并培育他们的技能。这项任务涉及多方面的策略：
+
+### 18
+SRC: FOSTERINGVISION For an EM, fostering a clear vision significantly enhances team productivity. It is your responsibility to impart a clear mission statement to your team by translating the organization-wide strategy and vision. This approach ensures that your team under- stands its purpose as a cohesive unit. Achieving clarity involves the following:
+ZH : 培养愿景 对于一个EM来说，培养清晰的愿景能够显著提升团队的生产力。这是你的一项责任，即通过将组织的整体战略和愿景转化为团队的明确使命陈述，向你的团队传达清晰的使命。这种做法确保了你的团队能够以一个统一的单位来理解其目的。实现清晰度涉及以下方面：
+
+### 19
+SRC: Embracing a visionary role requires mastering effective communication to promote transparency in conveying messages, especially in an era of unprecedented access to information.
+ZH : 拥抱一个愿景型角色需要掌握有效的沟通方式，以促进在信息获取前所未有的开放时代中传达信息的透明度。
+
+### 20
+SRC: LEADINGPROJECTS EMs are integral to leading projects, actively involved from initiation to completion. Responsibilities may vary based on the organization and team structure but could include any of the following:
+ZH : 主导项目EMs是主导项目的重要组成部分，从项目启动到完成都积极参与。其职责可能因组织和团队结构而有所不同，但可能包括以下内容：
+
+### 21
+SRC: Striking a balance between achieving delivery goals and maintaining technical excellence while placing less emphasis solely on coding, which is crucial for the overall success of a project or organization Removing roadblocks for the team, using experience and a 50,000-foot view to clear paths Ensuringoperationalstabilityaftertheproducthasbeenlaunchedinto production
+ZH : 在实现交付目标的同时保持技术卓越，同时将重点放在编码之上，这在项目或组织的整体成功中是至关重要的清除团队中的障碍，利用经验和50,000英尺的视角来清除路径确保产品在推向生产后保持运营稳定性
+
+### 22
+SRC: MASTERINGDELEGATION Effectively juggling multiple projects, facilitating career discussions, aligning stake- holders, and attending numerous meetings solo is simply unfeasible. To expand your capacity, mastering the skill of delegation is essential. This skill involves the following:
+ZH : 掌握委派技能 有效地处理多项项目，促进职业讨论，协调利益相关者，并独自参加大量会议是完全不可能的。为了拓展你的能力，掌握委派技能是必不可少的。这项技能包括以下内容：
+
+### 23
+SRC: FOCUSINGONENGINEERINGEXCELLENCE For EMs, continuous learning and growth are paramount to both personal and team development. You influence the culture of your team. To foster engineering excel- lence, consider the following steps:
+ZH : 聚焦于工程卓越。对于EMs来说，持续学习和成长是个人及团队发展的关键。您影响着您的团队文化。为促进工程卓越，考虑以下步骤：
+
+### 24
+SRC: 1.1.3Traits of a good engineering manager An EM holds a pivotal role that’s akin to a chief in the military. Their traits can pro- foundly affect both the team and its projects. In this section, we’ll look at key traits that distinguish a good EM.
+ZH : 1.1.3 优秀工程经理的特质 一位优秀的工程经理在团队和项目中发挥着至关重要的作用，其特质能够深刻影响团队和项目。在本节中，我们将探讨区分优秀工程经理的关键特质。
+
+### 25
+SRC: CARINGFORPEOPLE The primary responsibility of an EM is to provide unwavering support for and engage- ment with team members. This responsibility can involve any or all of the following:
+ZH : 关心人民。EM的主要职责是为团队成员提供无条件的支持和参与。这项职责可能涉及以下各个方面：
+
+### 26
+SRC: In essence, a caring EM not only manages projects and tasks, but also actively supports the personal and professional development of each team member, creating a positive and thriving work environment. Consider a scenario in which a new engineer, Claire, inadvertently introduces a bug into the software. The reactions of two EMs, Alice and Bob, showcase distinct leadership approaches:
+ZH : 本质上，一位有爱心的EM不仅管理项目和任务，还积极支持每位团队成员的个人和职业发展，营造出积极向上的工作环境。设想一个场景，新工程师克莱尔不小心将一个bug引入到软件中。两位EM，艾莉和鲍勃，展示了截然不同的领导风格：
+
+### 27
+SRC: HAVINGACLEARVISION An effective EM excels in articulating a compelling mission statement and vision for the team, fostering a shared purpose and encouraging critical thinking. Let’s go back to the experiences of Alice and Bob, two EMs who approach this task differently.
+ZH : 具有清晰视野的EM在传达团队的有力使命陈述和愿景方面表现卓越，能够激发共同的目标并鼓励批判性思维。让我们回到Alice和Bob，两位EM，他们以不同的方式对待这一任务。
+
+### 28
+SRC: LEADINGWITHEMOTIONALINTELLIGENCE In the complex and demanding field of engineering management, scenarios often arise that require delicate balancing of project responsibilities with the well-being of team members. Let’s look at a hypothetical situation. A crucial project deadline looms while the lead engineer faces a personal tragedy. Key steps for displaying emotional intelligence are
+ZH : 在工程管理这一复杂且 demanding 的领域中，常常会出现需要在项目责任与团队成员的福祉之间进行细致平衡的场景。让我们来看一个假设的情况。一个关键的项目截止日期临近，而首席工程师则面临个人悲剧。展示情感智能的关键步骤是
+
+### 29
+SRC: BEINGALEARNERWITHBOTHBUSINESSANDTECHNICALACUMEN An effective EM thrives on continuous learning, recognizing the dynamic nature of technology and business landscapes. Their role requires both business acumen and technical expertise to ensure that they can guide both the business and engineering teams. Doing so requires a continuous-learning mindset, including the following:
+ZH : 作为兼具商业和技术素养的终身学习者，有效的EM需要持续学习，认识到技术与商业环境的动态性。他们的角色要求兼具商业洞察力与技术能力，以确保能够引导商业与工程团队。要做到这一点，需要具备持续学习的思维模式，包括以下内容：
+
+### 30
+SRC: Giving the person or team a shout-out on team and leadership channels, shar- ing the details of the situation and what the team or person did that had a huge effect Recognizing people on internal platforms or tools, showing how they met or exceeded the company’s leadership-principles standards
+ZH : 在团队和领导渠道上为个人或团队给予肯定，分享情况细节以及该团队或个人所做之事对结果产生了巨大影响 在内部平台或工具上认可人员，展示他们如何满足或超越了公司的领导原则标准
+
+### 31
+SRC: Using monthly meetings to acknowledge all the great work done in the previ- ous period Finding opportunities for team members to present their excellent work in all- hands or leadership meetings to help them get visibility
+ZH : 利用每月会议来认可上一时期内团队成员所完成的出色工作寻找机会让团队成员在全体会议或领导会议上展示他们的出色工作，以帮助他们获得关注
+
+### 32
+SRC: Optimizing for key business metrics and delivering value Increasing team development velocity Creating and maintaining healthy team morale, fostering team members’ career progress Optimizing for operational metrics
+ZH : 优化关键业务指标并创造价值 提高团队发展速度 创建和维护健康团队士气，促进团队成员的职业发展 优化运营指标
+
+### 33
+SRC: These areas are interconnected, and success or failure in one can affect others. Enhancing developer velocity, for example, can influence key business or operational metrics, provided that proper processes are in place. Conversely, persistent failure to affect business metrics can affect team morale. Exploring each area in depth provides comprehensive understanding of success.
+ZH : 这些区域相互关联，一个的成功或失败可能影响其他区域。例如，提升开发速度可以影响关键的业务或运营指标，前提是适当的流程已经建立。相反，持续的失败无法影响业务指标，可能会影响团队士气。深入探索每个区域可以提供对成功全面的理解。
+
+### 34
+SRC: Deployment frequency—How often services are deployed to production, using continuous integration and continuous deployment Change lead time—The duration from code change commitment to deployable status Mean time to recovery—The time it takes to recover services or products in case of an problem Change failure rate—The frequency at which changes or hotfixes result in fail- ures after deployment
+ZH : 部署频率—使用持续集成和持续部署将服务部署到生产环境的频率 变更周期—从代码变更承诺到可部署状态所需的时间 平均恢复时间—发生问题时恢复服务或产品所需的时间 变更失败率—部署后变更或补丁导致失败的频率
+
+### 35
+SRC: Sprint velocity—Seeing how many story points your team can deliver in a sprint, including assessing burndown charts Time to complete code reviews—Ensuring that engineers help review peer code to improve developer velocity as a whole
+ZH : 冲刺速度——了解你们团队在冲刺中能交付多少故事点，包括评估燃尽图 完成代码审查所需时间——确保工程师帮助审查同行代码，以整体提升开发人员的速度
+
+### 36
+SRC: Number of bugs reported and resolved—Monitoring the number of bugs reported by customers and QA and bringing the count down Failed deployment recovery time—Monitoring how long it takes to recover from a failed deployment
+ZH : 报告的缺陷数量及解决情况——监控客户和QA报告的缺陷数量，并将其降至最低 失败部署恢复时间——监控从失败部署中恢复所需的时间
+
+### 37
+SRC: A successful EM leads a team with high morale, whose members are motivated to go the extra mile for one another, contributing to a conducive learning environment.
+ZH : 一个成功的EM带领着一个士气高昂的团队，成员们互相激励，愿意为彼此付出更多，从而营造出有利于学习的环境。
+
+### 38
+SRC: 1.2.4Operational excellence metrics Operational excellence and process improvements serve as the backbone of the engi- neering culture within a company. These metrics reflect the health of services and
+ZH : 1.2.4运营卓越指标 运营卓越与流程改进是公司工程文化的核心。这些指标反映了服务的质量与健康状况
+
+### 39
+SRC: processes, as well as indicate the team’s focus on launching new products versus main- taining existing ones. Key metrics for assessing operational excellence include
+ZH : 流程，以及表明团队在推出新产品与维护现有产品之间的重点。评估运营卓越的关键指标包括
+
+### 40
+SRC: Technical debt on the team (further explored in chapter 12) Defects resolution rate (incoming versus resolved) Test code coverage (the absence of which can indicate a problem) Extensibility and readability of code Code maintenance and on-call reports Reduced costs and downtime Ability to meet defined service-level agreement (SLA) contracts Availability of services in production
+ZH : 团队技术债务（进一步在第12章探讨）缺陷修复率（入队与已解决）测试代码覆盖率（其缺失可能表明问题）代码的可扩展性和可读性代码维护与值班报告降低成本和停机时间满足定义的服务水平协议（SLA）合同生产环境中服务的可用性
+
+### 41
+SRC: A defined leadership style helps set expectations for your team and yourself. Let’s explore six common engineering leadership styles, understanding that each style has its own merits and may be most effective in different situations. The key is adapting and using these styles based on context, team maturity, size, and product.
+ZH : 一种明确的领导风格有助于设定你团队和自己的期望。让我们探讨六种常见的工程领导风格，理解到每种风格都有其优点，可能在不同的情况下最为有效。关键是根据情境、团队成熟度、规模和产品来适应并运用这些风格。
+
+### 42
+SRC: Prefer full control of situations Disregard others’ opinions Tend to micromanage Possess overconfidence in your knowledge Embrace a restrictive leadership style Adhere strictly to rules and playbooks Make decisions without considering others’ input Potentially prioritize self-interest over team focus
+ZH : 偏好对情况拥有完全控制权 忽视他人意见 倾向于微观管理 自认为知识渊博 采用限制性领导风格 严格遵守规则和流程 在做决策时不考虑他人意见 可能将个人利益置于团队利益之上
+
+### 43
+SRC: Value ideas from your team members Be a good listener Embrace innovation and creativity Welcome diverse viewpoints Be willing to make compromises for team satisfaction and motivation
+ZH : 从团队成员那里获取价值想法 善于倾听 拥抱创新与创造力 欢迎多元观点 愿意为团队的满意度和激励做出妥协
+
+### 44
+SRC: Although this approach fosters a sense of participation and satisfaction, it has draw- backs. Decision-making can be slow, and collecting timely feedback may be challenging. For crucial decisions, relying solely on democratic methods may hinder strategic direc- tion. Setting clear deadlines or using rapid-feedback tools can address these problems.
+ZH : 尽管这种方法能够增强参与感和满足感，但也有其不足之处。决策过程可能较慢，获取及时的反馈可能较为困难。对于关键决策，仅依赖民主方法可能会阻碍战略方向。设定明确的截止日期或使用快速反馈工具可以解决这些问题。
+
+### 45
+SRC: Prefer to delegate decision-making to your team Trust your team members to make the right decisions Adopt a hands-off management approach Cultivate a culture of empowerment and leadership within the team
+ZH : 倾向于将决策权委托给你的团队成员 信任你的团队成员做出正确的决定 采用放手管理的策略 在团队中培养一种鼓励自主权和领导力的文化
+
+### 46
+SRC: The goal is to create an environment in which collaboration thrives and the team feels empowered. We’ll discuss delegation in depth in chapter 5.
+ZH : 目标是创造一个让合作蓬勃发展并让团队感到被赋能的环境。我们将深入讨论委派问题，这将在第五章中展开。
+
+### 47
+SRC: 1.3.4Transactional Meet Dave, who employs a transactional leadership approach, motivating his team through incentives and consequences. He views work as a gamified experience, foster- ing healthy competition to bring out the best in individuals. Recognizing hard work, he rewards achievements and provides training to ensure results. Leaders with a trans- actional style, like Dave, typically
+ZH : 1.3.4 交易型领导力的实践者达维，采用交易型领导风格，通过激励和惩罚来激励他的团队。他认为工作是一种游戏化体验，鼓励健康竞争，以激发个人的最佳表现。他认识到努力的重要性，给予成就奖励，并提供培训以确保成果。像达维这样的交易型领导者通常
+
+### 48
+SRC: Incentivize exceptional work with rewards Employ consequences for work that doesn’t align with expectations Cultivate a competitive culture within the organization Tend to engage in some level of micromanagement Place high value on achieving set goals
+ZH : 以奖励激励优秀工作 对不符合预期的工作实施后果 在组织内培育竞争文化 适度进行微观管理 重视达成设定目标
+
+### 49
+SRC: Although the transactional leadership style can improve business metrics, it comes with potential drawbacks that affect overall team morale. Unintended consequences of a competitive environment may include unexpected attrition, a noticeable divide between high and low performers, reluctance to share openly, and general disengage- ment within the team.
+ZH : 尽管交易型领导风格可以提升业务指标，但其潜在的弊端可能影响整体团队士气。竞争环境下的意外后果可能包括意外离职、高绩效成员与低绩效成员之间的明显差距、不愿公开分享以及团队内部普遍的冷漠态度。
+
+### 50
+SRC: Leading through inspiration Being considered a visionary leader Prioritizing the company’s goals and missions Uniting the team to achieve goals collectively Believing in bold, strategic decision-making
+ZH : 以启发式的方式引领团队被视作有远见的领导者优先考虑公司的目标和使命团结团队共同实现目标相信大胆而有战略性的决策
+
+### 51
+SRC: Prefer a people-first management approach Enjoy mentoring and coaching View your role as enabling others to succeed Seek to understand the motivations and aspirations of your team members Provide guidance and feedback to team members Believe in the importance of team-building, and go the extra mile for the team’s success
+ZH : 以人为核心的人事管理方式 享受指导和辅导 将自身角色视为帮助他人成功 努力理解团队成员的动机和追求目标 为团队成员提供指导和反馈 相信团队建设的重要性，并为团队的成功付出额外努力
+
+### 52
+SRC: 1.3.7Choosing your leadership style Choosing your preferred leadership style is crucial, but keep in mind that there’s no one-size-fits-all solution. Your leadership approach depends on factors such as your expe- rience, team dynamics, project phase, and company culture.Flexibility is key.A hybrid style is OK and often works best because leadership styles depend on multiple factors:
+ZH : 1.3.7选择你的领导风格 选择你 preferred 的领导风格是至关重要的，但请记住，没有一种适合所有人的解决方案。你的领导方式取决于诸如你的经验、团队动态、项目阶段和公司文化等因素。灵活性是关键。混合风格是可以接受的，通常效果最佳，因为领导风格取决于多个因素：
+
+### 53
+SRC: You—Your experience as an engineering leader and your personality signifi- cantly shape your approach to leadership. The team—The size of your team along with the experience levels of your team members, their preferences and aspirations, and how they perceive you influ- ence your leadership style.
+ZH : 你——你作为工程领导者的经验以及你的个性，显著地影响你对领导方式的采取。团队——你团队的规模、成员的经验水平、他们的偏好和抱负，以及他们如何看待你，都会影响你的领导风格。
+
+### 54
+SRC: Project phase—Different project phases may warrant using different leadership styles. The company—Several internal and external factors dictate how the company is run, including the company culture, the product strategy, competition, and time constraints.
+ZH : 项目阶段—不同项目阶段可能需要采用不同的领导风格。公司—公司运行受多种内部和外部因素影响，包括公司文化、产品战略、竞争状况以及时间限制。
+
+### 55
+SRC: Though many traits are important to be a good leader, classifying any one as most important will not be completely right. While creativity, curiosity, collaboration, and com- munication might top the charts, I think empathy is crucial. It is extremely vital to be empathetic towards your team members, your clients, your end users, and everyone you interact with.
+ZH : 尽管许多特质对成为优秀领导者至关重要，但将任何一种特质列为最重要的却不会完全正确。虽然创造力、好奇心、合作和沟通可能位居榜首，但我认为共情能力至关重要。对团队成员、客户、最终用户以及与你互动的每个人保持共情是非常重要的。
+
+### 56
+SRC: A manager plays a fundamental role in overseeing and supporting employees to enhance their effectiveness and productivity while contributing to the overall business strategy. This role applies across diverse industries, such as technology, customer care, sales, finance, and restaurants.
+ZH : 一名经理在监督和支援员工以提高其效率和生产力的同时，为整体业务战略做出贡献，这一角色适用于不同行业，如科技、客户服务、销售、金融和餐饮业。
+
+### 57
+SRC: This chapter covers Differences between an individual contributor and an engineering manager Common misconceptions when transitioning to engineering manager Sharing intentions and motivations for becoming an engineering manager A three-phase approach for the transition How to help others go from individual contributors to engineering managers
+ZH : 本章涵盖以下内容：个体开发者与工程经理之间的差异 转任工程经理时的常见误解 成为工程经理的意图和动机分享 过渡的三阶段方法 如何帮助他人从个体开发者转变为工程经理
+
+### 58
+SRC: My job is not to be easy on people. My job is to take these great people we have and to push them and make them even better.
+ZH : 我的工作不是对人们宽容，而是要让这些伟大的人不断进步，变得更好。
+
+### 59
+SRC: In chapter 1, we explored the responsibilities of an engineering manager (EM) and emphasized the importance of managing teams and individuals in this role. As more software engineers consider a move into management, understanding the distinc- tions between the roles of an individual contributor (IC) and an EM becomes crucial.
+ZH : 第一章中，我们探讨了工程经理（EM）的职责，并强调了在这一角色中管理团队和个体的重要性。随着越来越多的软件工程师考虑转向管理岗位，理解个体开发者（IC）与EM之间的区别变得至关重要。
+
+### 60
+SRC: PriorityYou value yourself first and then the team, thinking about how to increase your efficiency as a developer. You are task-oriented and typically directed to complete tasks by the team, team lead, prod- uct owner, or manager.
+ZH : 优先考虑自己，然后是团队，思考如何提高作为开发者的效率。你以任务为导向，通常会按照团队、团队领导、产品负责人或经理的指示完成任务。
+
+### 61
+SRC: TimeThe majority of your time is spent coding and allocationshipping products. You get more focus time to work on tasks.
+ZH : 时间大部分时间你都在编写代码并分配产品。你有更多的时间专注于完成任务。
+
+### 62
+SRC: PeopleYou may mentor other engineers but without aspectworrying about the people or career aspects of the mentoring relationship.
+ZH : 人们你可能指导其他工程师，但不必担心指导关系中的人际或职业方面的问题。
+
+### 63
+SRC: The team comes before you. You are always thinking about how to build a high-performing team and increase developer velocity. You are responsive and proactive, flexible and adapt- able, and you typically prioritize the needs of others. Rarely do you follow a set or defined task list that includes a personal agenda.
+ZH : 团队优先于你。你总是思考如何构建一支高绩效的团队并提高开发人员的开发速度。你响应迅速、积极主动、灵活且适应性强，通常优先考虑他人的需求。你很少会遵循一个包含个人日程的固定或定义好的任务列表。
+
+### 64
+SRC: Coding takes a back seat. You spend most of your time managing people, building teams and strategies, and influencing people around you. You get more meeting time than focus time.
+ZH : 编码工作退居其次。你大部分时间都在管理人、组建团队和制定战略，以及影响身边的人。你花在会议上的时间比花在专注工作上的时间还要多。
+
+### 65
+SRC: You are responsible for the career growth of your team members, as well as not-so-fun human resources and legal matters. You help people get promoted and manage underperformance.
+ZH : 你对团队成员的职业发展负有责任，同时还要处理一些不那么有趣的员工关系和法律事务。你帮助人们晋升，并管理绩效不佳的情况。
+
+### 66
+SRC: SpecializationYou can be a specialist in your area or aYou are a generalist with broad knowledge of tech- subject-matter expert (SME) in your areanology and an expert on people management. of technical expertise.
+ZH : 专长您可以在您的领域成为专家，或在您的领域成为技术领域专家，并在人员管理方面成为专家。
+
+### 67
+SRC: Role mindsetYou have a doer or creator mindset. As an IC,You have a delegator or enabler mindset. In you might be following the examples of others.many ways, you’re also an educator, mentor, and career coach. You lead by example.
+ZH : 角色心态你具有行动者或创造者的心态。作为IC，你具有委托者或推动者的心态。你可能在他人身上看到了榜样。此外，你也是教育者、导师和职业教练。你以身作则地引领他人。
+
+### 68
+SRC: StrategyYou tend to think about the what, when, andYou must consider the why of a project/technology/ how of technology. Senior ICs can help contrib-business. You must operate at a higher level. ute to the why aspect.Managers fly at the 50,000-foot level, not the 2,000-foot level.
+ZH : 战略你通常会思考项目的什么、何时以及如何。你必须考虑项目的为什么。高级IC可以协助业务发展。你必须在更高层次上运作。管理者在50,000英尺的层面飞行，而不是在2,000英尺的层面。
+
+### 69
+SRC: OutcomeYour work produces more immediate results,Your efforts can take time to show outcomes. such as projects shipped, delivery velocity,Successfully leading an organization-wide product/project completion, and DORA metrics.program does not happen overnight. Your outcomes are far more subjective and include the successes of your people.
+ZH : 结果您的工作能产生更直接的结果，您的努力可能需要时间才能看到成果，例如已交付的项目、交付速度、成功领导组织范围内的产品/项目完成，以及DORA指标。您的成果远比您所认为的要主观，包括您团队的成功。
+
+### 70
+SRC: Let’s address some prevalent misconceptions in the tech industry. Surprising as it may seem, these misconceptions are widespread and can affect our understanding of the expectations associated with the EM role.
+ZH : 让我们来纠正一些在科技行业中的普遍误解。尽管这看似令人惊讶，但这些误解却很普遍，可能会影响我们对EM角色所涉及期望的理解。
+
+### 71
+SRC: to an EM role after achieving a specific experience level (figure 2.1). This flexibility extends to moving back from EM to IC, provided that you maintain your coding skillsSenior
+ZH : 在达到特定经验等级（见图2.1）后，可转任EM角色。这种灵活性也适用于从EM转至IC，但需保持编程技能。
+
+### 72
+SRC: common on the lower levels of the chart shown in figure 2.1. Although smaller companies may pro- vide varying levels of flexibility, these career ladders offer engineers the freedom to choose and excelPrincipal
+ZH : 常见于图2.1所示图表的较低层次。尽管小型公司可能提供不同程度的灵活性，但这些职业阶梯为工程师提供了选择和超越的机会。
+
+### 73
+SRC: Coding skills are valuable for an EM to possess, butengineerManager they may not be used frequently in the role. The skills youwilluse consistently are people manage- ment and your ability to execute the organization’sSenior
+ZH : 编码技能对EM来说是有价值的，但它们在角色中可能并不常被使用。你将不断使用的能力是人员管理以及你执行组织战略的能力。
+
+### 74
+SRC: You must be comfortable with the idea of step- ping away from coding as an EM. You can still con- tribute actively to architectural discussions, staying connected to the product and the code by design-Software
+ZH : 你必须能够接受从编码中退出作为EM的想法。你仍然可以积极地参与架构讨论，通过设计与产品和代码保持联系。
+
+### 75
+SRC: ing high-level architecture. In smaller teams, on which technical expertise is vital and coding is expected, you might continue codinguntilasuitablereplacementisfound.
+ZH : 在高級架構中，對於規模較小的團隊而言，技術專長和編碼期望是關鍵因素，此時你可能持續編碼，直到找到合適的替換方案。
+
+### 76
+SRC: Expectations regarding coding involvement vary, sograd/intern make sure that you align your priorities with the requirements and expectations of the particular
+ZH : 对编码参与程度的期望有所不同，因此在担任研究生或实习生时，要确保你的优先事项与特定项目的实际需求和期望保持一致。
+
+### 77
+SRC: First-level managers who recently transitionedIC and EM roles. As you can see, from IC to EM may maintain some involvement withthe transition is not necessarily coding, provided that they balance their EM respon-a promotion; it may be a lateral
+ZH : 一级经理最近转任IC和EM角色。如你所见，从IC转任EM可能仍会有一些与转型相关的参与，转型并不一定涉及编码，只要他们平衡自己的EM职责即可。
+
+### 78
+SRC: in managerial responsibilities. It’s essential to prioritize your current role, focusing on people, projects, and processes. Balancing these aspects ensures that you manage effec- tively without falling behind on technical advancements.
+ZH : 在管理职责方面。必须优先考虑当前的角色，聚焦于人、项目和流程。平衡这些方面，确保你有效管理，不落后于技术进步。
+
+### 79
+SRC: Figure 2.2Breakdown of coding and leadership skills based on roles. For an IC, the focus is on coding. If you take the EM track and become a manager of managers, you will focus the majority of your time on leadership skills.
+ZH : 图2.2根据角色划分的编码和领导技能分解情况。对于IC来说，重点在于编码。如果你选择EM方向并成为管理者，你将主要时间投入到领导技能的培养中。

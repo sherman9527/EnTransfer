@@ -1,0 +1,9 @@
+{
+  "name": "entransfer-poc-speed-v3",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Isolated POC sandbox: speed/quant/model benchmarks for EnTransfer. Install deps with: npm i node-llama-cpp@3.21.1",
+  "dependencies": {
+    "node-llama-cpp": "^3.21.1"
+  }
+}
