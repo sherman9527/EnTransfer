@@ -42,14 +42,19 @@ const STD = [0.229, 0.224, 0.225]
 const DET_SIZE = 480
 const SCORE_THRESHOLD = 0.3
 
-/** Locate the bundled model across dev, packaged (asar), and harness contexts. */
+/** Locate the bundled model across dev, packaged (asar), and harness contexts.
+ *  onnxruntime-node opens the model with NATIVE file I/O that cannot traverse
+ *  Electron's asar virtual FS, so when packaged we must hand it the physical
+ *  app.asar.unpacked path (the model is asarUnpacked in build config). */
 export function resolveModelPath(): string {
   const rel = path.join('assets', 'layout', 'pp_doclayout_s.onnx')
   const roots: string[] = []
   if ((process.versions as { electron?: string }).electron) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      roots.push((require('electron').app.getAppPath()))
+      const appPath: string = require('electron').app.getAppPath()
+      roots.push(appPath.replace(/app\.asar$/, 'app.asar.unpacked'))
+      roots.push(appPath)
     } catch { /* ignore */ }
   }
   roots.push(process.cwd())
