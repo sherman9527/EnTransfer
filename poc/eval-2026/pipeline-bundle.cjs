@@ -35,8 +35,8 @@ __export(pipeline_exports, {
   resolveFontPath: () => resolveFontPath
 });
 module.exports = __toCommonJS(pipeline_exports);
-var import_node_fs4 = require("node:fs");
-var import_node_path4 = __toESM(require("node:path"));
+var import_node_fs6 = require("node:fs");
+var import_node_path6 = __toESM(require("node:path"));
 var import_electron = require("electron");
 
 // electron/queue/checkpoint.ts
@@ -78,11 +78,11 @@ var CheckpointStore = class {
    * Atomic write: serialize to `<path>.tmp`, fsync-less, then rename over the
    * target. On Windows rename replaces the destination atomically (libuv).
    */
-  async atomicWrite(path3, data) {
-    await import_node_fs.promises.mkdir((0, import_node_path.dirname)(path3), { recursive: true });
-    const tmp = path3 + ".tmp";
+  async atomicWrite(path5, data) {
+    await import_node_fs.promises.mkdir((0, import_node_path.dirname)(path5), { recursive: true });
+    const tmp = path5 + ".tmp";
     await import_node_fs.promises.writeFile(tmp, data, "utf8");
-    await import_node_fs.promises.rename(tmp, path3);
+    await import_node_fs.promises.rename(tmp, path5);
   }
   // ----- checkpoint.json (atomic) -----
   /** Persist a progress snapshot atomically. */
@@ -202,10 +202,245 @@ var CheckpointStore = class {
 var fs = __toESM(require("node:fs"));
 var zlib = __toESM(require("node:zlib"));
 var pdfjsNamespace = __toESM(require("pdfjs-dist/legacy/build/pdf.js"));
+
+// electron/pdf/capture/layout-detector.ts
+var import_node_fs2 = require("node:fs");
+var import_node_path2 = __toESM(require("node:path"));
+var CLASS_NAMES = [
+  "paragraph_title",
+  "image",
+  "text",
+  "number",
+  "abstract",
+  "content",
+  "figure_title",
+  "formula",
+  "table",
+  "table_title",
+  "reference",
+  "doc_title",
+  "footnote",
+  "header",
+  "algorithm",
+  "footer",
+  "seal",
+  "chart_title",
+  "chart",
+  "formula_number",
+  "header_image",
+  "footer_image",
+  "aside_text"
+];
+var MEAN = [0.485, 0.456, 0.406];
+var STD = [0.229, 0.224, 0.225];
+var DET_SIZE = 480;
+var SCORE_THRESHOLD = 0.3;
+function resolveModelPath() {
+  const rel = import_node_path2.default.join("assets", "layout", "pp_doclayout_s.onnx");
+  const roots = [];
+  if (process.versions.electron) {
+    try {
+      const appPath = require("electron").app.getAppPath();
+      roots.push(appPath.replace(/app\.asar$/, "app.asar.unpacked"));
+      roots.push(appPath);
+    } catch {
+    }
+  }
+  roots.push(process.cwd());
+  for (const r of roots) {
+    const p = import_node_path2.default.join(r, rel);
+    if ((0, import_node_fs2.existsSync)(p)) return p;
+  }
+  return import_node_path2.default.join(roots[0] ?? process.cwd(), rel);
+}
+var LayoutDetector = class {
+  session = null;
+  loadError = null;
+  loading = null;
+  /** true once a session is ready; false (permanently) if the backend/model is unavailable. */
+  get isAvailable() {
+    return this.session !== null;
+  }
+  /** Lazily load the model (idempotent, safe to call per page). */
+  async ensureLoaded() {
+    if (this.session) return true;
+    if (this.loading) {
+      await this.loading;
+      return this.session !== null;
+    }
+    this.loading = (async () => {
+      const modelPath = resolveModelPath();
+      if (!(0, import_node_fs2.existsSync)(modelPath)) {
+        this.loadError = `layout model not found: ${modelPath}`;
+        return;
+      }
+      try {
+        const ort = require("onnxruntime-node");
+        this.session = await ort.InferenceSession.create(modelPath, { graphOptimizationLevel: "all" });
+        this.ort = ort;
+      } catch (err) {
+        this.loadError = `onnxruntime-node init failed: ${err.message}`;
+      }
+    })();
+    await this.loading;
+    return this.session !== null;
+  }
+  ort = null;
+  /**
+   * Detect layout regions on one page. `rgba` is a DET_SIZE×DET_SIZE RGBA buffer
+   * (renderer already resized the page to 480×480, distorting is expected by the
+   * model contract). `renderW/renderH` are the page's pixel size at the render
+   * scale, so returned boxes are in that pixel space (caller divides by scale).
+   */
+  async detect(rgba, renderW, renderH) {
+    const ort = this.ort;
+    const session = this.session;
+    if (!ort || !session) return [];
+    const chw = new Float32Array(3 * DET_SIZE * DET_SIZE);
+    for (let y = 0; y < DET_SIZE; y++) {
+      for (let x = 0; x < DET_SIZE; x++) {
+        const i = (y * DET_SIZE + x) * 4;
+        for (let c = 0; c < 3; c++) {
+          chw[c * DET_SIZE * DET_SIZE + y * DET_SIZE + x] = (rgba[i + c] / 255 - MEAN[c]) / STD[c];
+        }
+      }
+    }
+    const image = new ort.Tensor("float32", chw, [1, 3, DET_SIZE, DET_SIZE]);
+    const sf = new ort.Tensor("float32", new Float32Array([DET_SIZE / renderH, DET_SIZE / renderW]), [1, 2]);
+    const out = await session.run({ image, scale_factor: sf });
+    const keys = Object.keys(out);
+    const dets = out[keys[0]];
+    const numTensor = out[keys[1]];
+    const n = numTensor ? Math.min(numTensor.data[0] | 0, dets.dims[0]) : dets.dims[0];
+    const boxes = [];
+    for (let r = 0; r < n; r++) {
+      const cid = dets.data[r * 6] | 0;
+      const score = dets.data[r * 6 + 1];
+      if (score < SCORE_THRESHOLD) continue;
+      const cls = CLASS_NAMES[cid];
+      if (!cls) continue;
+      boxes.push({
+        cls,
+        score,
+        x0: dets.data[r * 6 + 2],
+        y0: dets.data[r * 6 + 3],
+        x1: dets.data[r * 6 + 4],
+        y1: dets.data[r * 6 + 5]
+      });
+    }
+    return boxes;
+  }
+  get error() {
+    return this.loadError;
+  }
+};
+
+// electron/pdf/capture/page-renderer.ts
+var import_node_fs3 = require("node:fs");
+var import_node_path3 = __toESM(require("node:path"));
+var pdfjs;
+var createCanvas;
+var workerConfigured = false;
+var docCache = /* @__PURE__ */ new Map();
+function backend() {
+  if (pdfjs !== void 0 && createCanvas !== void 0) return !!pdfjs && !!createCanvas;
+  try {
+    const ns = require("pdfjs-dist/legacy/build/pdf.js");
+    pdfjs = ns.default ?? ns;
+    createCanvas = require("@napi-rs/canvas").createCanvas;
+  } catch (err) {
+    console.warn("[page-renderer] backend unavailable:", err.message);
+    pdfjs = null;
+    createCanvas = null;
+  }
+  return !!pdfjs && !!createCanvas;
+}
+function configureWorker() {
+  if (workerConfigured || !pdfjs) return;
+  try {
+    const p = require.resolve("pdfjs-dist/legacy/build/pdf.worker.js");
+    pdfjs.GlobalWorkerOptions.workerSrc = p;
+  } catch {
+    pdfjs.GlobalWorkerOptions.workerSrc = import_node_path3.default.join(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.js");
+  }
+  workerConfigured = true;
+}
+async function getDoc(pdfPath) {
+  if (!backend()) return null;
+  configureWorker();
+  let doc = docCache.get(pdfPath);
+  if (!doc) {
+    if (!(0, import_node_fs3.existsSync)(pdfPath)) return null;
+    const data = new Uint8Array((0, import_node_fs3.readFileSync)(pdfPath));
+    doc = await pdfjs.getDocument({ data, isEvalSupported: false, useSystemFonts: true }).promise;
+    docCache.set(pdfPath, doc);
+  }
+  return doc;
+}
+async function renderForDetect(pdfPath, pageNumber, scale = 2) {
+  if (!backend()) return null;
+  const doc = await getDoc(pdfPath);
+  if (!doc) return null;
+  const page = await doc.getPage(pageNumber);
+  try {
+    const vp = page.getViewport({ scale });
+    const renderW = Math.ceil(vp.width);
+    const renderH = Math.ceil(vp.height);
+    const full = createCanvas(renderW, renderH);
+    await page.render({ canvasContext: full.getContext("2d"), viewport: vp }).promise;
+    const small = createCanvas(480, 480);
+    const sctx = small.getContext("2d");
+    sctx.drawImage(full, 0, 0, 480, 480);
+    const img = sctx.getImageData(0, 0, 480, 480).data;
+    const rgba = new Uint8Array(img.buffer ? img.byteLength : img.length);
+    for (let i = 0; i < rgba.length; i++) rgba[i] = img[i];
+    full.dispose?.();
+    small.dispose?.();
+    return { rgba, renderW, renderH, scale };
+  } finally {
+    await page.cleanup();
+  }
+}
+async function renderClip(pdfPath, pageNumber, box, scale = 2) {
+  if (!backend()) return null;
+  const doc = await getDoc(pdfPath);
+  if (!doc) return null;
+  const page = await doc.getPage(pageNumber);
+  try {
+    const vp = page.getViewport({ scale });
+    const renderW = Math.ceil(vp.width);
+    const renderH = Math.ceil(vp.height);
+    const full = createCanvas(renderW, renderH);
+    await page.render({ canvasContext: full.getContext("2d"), viewport: vp }).promise;
+    const x0 = Math.max(0, Math.round(box.x0));
+    const y0 = Math.max(0, Math.round(box.y0));
+    const w = Math.max(1, Math.min(renderW - x0, Math.round(box.x1 - box.x0)));
+    const h = Math.max(1, Math.min(renderH - y0, Math.round(box.y1 - box.y0)));
+    const out = createCanvas(w, h);
+    out.getContext("2d").drawImage(full, x0, y0, w, h, 0, 0, w, h);
+    const png = out.toBuffer("image/png");
+    full.dispose?.();
+    out.dispose?.();
+    return { png, w, h };
+  } finally {
+    await page.cleanup();
+  }
+}
+async function disposeRenderer() {
+  for (const d of docCache.values()) {
+    try {
+      await d.destroy?.();
+    } catch {
+    }
+  }
+  docCache.clear();
+}
+
+// electron/pdf/capture/flow.ts
 var import_pdf_lib = require("pdf-lib");
 var pdfjsLib = pdfjsNamespace.default ?? pdfjsNamespace;
 pdfjsLib.GlobalWorkerOptions.workerSrc = "./pdf.worker.js";
-var CAPTURE_VERSION = 2;
+var CAPTURE_VERSION = 3;
 function isTextItem(item) {
   return typeof item === "object" && item !== null && typeof item.str === "string" && Array.isArray(item.transform);
 }
@@ -719,6 +954,126 @@ function splitHeadingFromBody(text) {
   const level = dotCount >= 3 ? 3 : 2;
   return { heading: headingPart, body: rest, level };
 }
+var FIGURE_MAX_INK_PCT = 12;
+var FIGURE_MIN_INK_PCT = 0.5;
+function regionInkPct(rgba, box, renderW, renderH) {
+  const sx = 480 / renderW;
+  const sy = 480 / renderH;
+  const x0 = Math.max(0, Math.floor(box.x0 * sx)), x1 = Math.min(479, Math.ceil(box.x1 * sx));
+  const y0 = Math.max(0, Math.floor(box.y0 * sy)), y1 = Math.min(479, Math.ceil(box.y1 * sy));
+  const w = x1 - x0, h = y1 - y0;
+  if (w < 2 || h < 2) return 100;
+  let dark = 0;
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    const i = (y * 480 + x) * 4;
+    if ((rgba[i] + rgba[i + 1] + rgba[i + 2]) / 3 < 160) dark++;
+  }
+  return dark / (w * h) * 100;
+}
+async function detectFigureRegions(inputPath, max, matchedImages) {
+  const detector = new LayoutDetector();
+  let loaded = false;
+  try {
+    loaded = await detector.ensureLoaded();
+  } catch {
+    loaded = false;
+  }
+  if (!loaded) {
+    if (detector.error) console.log(`[capture/flow] layout pass skipped: ${detector.error}`);
+    return [];
+  }
+  const covered = /* @__PURE__ */ new Map();
+  for (const m of matchedImages) {
+    const arr = covered.get(m.placement.page) ?? [];
+    arr.push({ c: m.placement.centerY, h: m.placement.displayH });
+    covered.set(m.placement.page, arr);
+  }
+  const DETECT_SCALE = 1.5;
+  const regions = [];
+  const t0 = Date.now();
+  for (let page = 1; page <= max; page++) {
+    let buf;
+    try {
+      buf = await renderForDetect(inputPath, page, DETECT_SCALE);
+    } catch {
+      continue;
+    }
+    if (!buf) continue;
+    let boxes;
+    try {
+      boxes = await detector.detect(buf.rgba, buf.renderW, buf.renderH);
+    } catch {
+      continue;
+    }
+    const pageHpt = buf.renderH / buf.scale;
+    const cov = covered.get(page) ?? [];
+    for (const b of boxes) {
+      if (b.cls !== "image" && b.cls !== "chart") continue;
+      const yTop = pageHpt - b.y0 / buf.scale;
+      const yBot = pageHpt - b.y1 / buf.scale;
+      const xLeft = b.x0 / buf.scale;
+      const xRight = b.x1 / buf.scale;
+      const h = yTop - yBot;
+      if (h < 40 || xRight - xLeft < 60) continue;
+      const centerY = (yTop + yBot) / 2;
+      if (cov.some((c) => Math.abs(c.c - centerY) < (c.h + h) * 0.4)) continue;
+      const ink = regionInkPct(buf.rgba, b, buf.renderW, buf.renderH);
+      if (ink < FIGURE_MIN_INK_PCT || ink > FIGURE_MAX_INK_PCT) continue;
+      regions.push({ page, xLeft, xRight, yTop, yBot });
+    }
+  }
+  console.log(`[capture/flow] layout detect: ${regions.length} sparse figure regions (ink<=${FIGURE_MAX_INK_PCT}%) in ${((Date.now() - t0) / 1e3).toFixed(1)}s`);
+  return regions;
+}
+function lineInRegion(line, regionsByPage) {
+  const rs = regionsByPage.get(line.page);
+  if (!rs) return false;
+  for (const r of rs) {
+    if (line.x >= r.xLeft - 2 && line.x <= r.xRight + 2 && line.y >= r.yBot - 2 && line.y <= r.yTop + 2) return true;
+  }
+  return false;
+}
+async function emitRegionImages(inputPath, regions) {
+  if (regions.length === 0) return [];
+  const CLIP_SCALE = 2;
+  const entries = [];
+  const pageHptCache = /* @__PURE__ */ new Map();
+  for (const r of regions) {
+    let pageHpt = pageHptCache.get(r.page);
+    if (pageHpt === void 0) {
+      const probe = await renderForDetect(inputPath, r.page, 1);
+      pageHpt = probe ? probe.renderH / probe.scale : 792;
+      pageHptCache.set(r.page, pageHpt);
+    }
+    const clipBox = {
+      x0: r.xLeft * CLIP_SCALE,
+      y0: (pageHpt - r.yTop) * CLIP_SCALE,
+      x1: r.xRight * CLIP_SCALE,
+      y1: (pageHpt - r.yBot) * CLIP_SCALE
+    };
+    let clip;
+    try {
+      clip = await renderClip(inputPath, r.page, clipBox, CLIP_SCALE);
+    } catch {
+      continue;
+    }
+    if (!clip || clip.png.length < 1024) continue;
+    entries.push({
+      block: {
+        type: "image",
+        page: r.page,
+        imageData: new Uint8Array(clip.png),
+        imageFormat: "png",
+        imagePixelWidth: clip.w,
+        imagePixelHeight: clip.h
+      },
+      page: r.page,
+      topY: r.yTop
+    });
+  }
+  await disposeRenderer().catch(() => void 0);
+  return entries;
+}
 async function captureFlow(inputPath, options = {}) {
   const data = new Uint8Array(fs.readFileSync(inputPath));
   const loadingTask = pdfjsLib.getDocument({
@@ -781,10 +1136,17 @@ async function captureFlow(inputPath, options = {}) {
     imageCount += pairs.length;
   }
   console.log(`[capture/flow] extracted ${imageCount} images from ${max} pages`);
+  const figureRegions = await detectFigureRegions(inputPath, max, matchedImages);
+  const regionsByPage = /* @__PURE__ */ new Map();
+  for (const r of figureRegions) {
+    const a = regionsByPage.get(r.page) ?? [];
+    a.push(r);
+    regionsByPage.set(r.page, a);
+  }
   const bodyLines = dropRepeatedEdgeText(allLines, max);
   const { tables, skip: tableLines } = detectTables(bodyLines);
   console.log(`[capture/flow] detected ${tables.length} tables`);
-  const proseLines = bodyLines.filter((l) => !tableLines.has(l));
+  const proseLines = bodyLines.filter((l) => !tableLines.has(l) && !lineInRegion(l, regionsByPage));
   const tableEntries = tables.map((t) => ({
     block: {
       type: "table",
@@ -925,6 +1287,23 @@ async function captureFlow(inputPath, options = {}) {
       blockEntries.splice(insertIdx, 0, { block: imgBlock, page: placement.page, topY: placement.centerY });
     }
   }
+  const layoutEntries = await emitRegionImages(inputPath, figureRegions);
+  for (const entry of layoutEntries) {
+    let insertIdx = blockEntries.length;
+    for (let i = 0; i < blockEntries.length; i++) {
+      const e = blockEntries[i];
+      if (e.page === entry.page && e.topY > entry.topY) {
+        insertIdx = i;
+        break;
+      }
+      if (e.page > entry.page) {
+        insertIdx = i;
+        break;
+      }
+    }
+    blockEntries.splice(insertIdx, 0, entry);
+  }
+  imageCount += layoutEntries.length;
   for (const t of tableEntries) {
     let insertIdx = blockEntries.length;
     for (let i = 0; i < blockEntries.length; i++) {
@@ -1076,7 +1455,7 @@ function finishLine(cur, pageNumber, pageWidth, pageHeight, col) {
 
 // electron/pdf/typeset/flow.ts
 var fs2 = __toESM(require("node:fs"));
-var path = __toESM(require("node:path"));
+var path3 = __toESM(require("node:path"));
 var import_fontkit = __toESM(require("@pdf-lib/fontkit"));
 var import_pdf_lib2 = require("pdf-lib");
 
@@ -1254,10 +1633,10 @@ function cleanText(text) {
 async function typesetFlow(blocks, outputPath, options = {}) {
   const doc = await import_pdf_lib2.PDFDocument.create();
   doc.registerFontkit(import_fontkit.default);
-  const regularPath = options.fontPath ?? path.resolve(process.cwd(), "assets", "fonts", "MicrosoftYaHei-Regular-subset.ttf");
-  const fontsDir = path.dirname(regularPath);
-  const boldPath = path.join(fontsDir, "MicrosoftYaHei-Bold-subset.ttf");
-  const monoPath = path.join(fontsDir, "Consolas-subset.ttf");
+  const regularPath = options.fontPath ?? path3.resolve(process.cwd(), "assets", "fonts", "MicrosoftYaHei-Regular-subset.ttf");
+  const fontsDir = path3.dirname(regularPath);
+  const boldPath = path3.join(fontsDir, "MicrosoftYaHei-Bold-subset.ttf");
+  const monoPath = path3.join(fontsDir, "Consolas-subset.ttf");
   const regular = await doc.embedFont(fs2.readFileSync(regularPath), { subset: false });
   const bold = await doc.embedFont(fs2.readFileSync(boldPath), { subset: false });
   const mono = await doc.embedFont(fs2.readFileSync(monoPath), { subset: false });
@@ -1713,20 +2092,20 @@ ${parts.join("\n")}
 }
 
 // electron/pdf/typeset/chromiumPrint.ts
-var import_node_fs2 = require("node:fs");
+var import_node_fs4 = require("node:fs");
 var import_node_os = require("node:os");
-var import_node_path2 = require("node:path");
+var import_node_path4 = require("node:path");
 var PRINT_TIMEOUT_MS = 9e4;
 async function printHtmlToPdf(html, outPath, workTmpDir) {
   const electronVer = process.versions.electron;
   if (!electronVer) throw new Error("chromiumPrint: not running inside Electron");
   const { BrowserWindow } = require("electron");
   const dir = workTmpDir ?? (0, import_node_os.tmpdir)();
-  await import_node_fs2.promises.mkdir(dir, { recursive: true });
-  const file = (0, import_node_path2.join)(dir, `entransfer-compose-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
+  await import_node_fs4.promises.mkdir(dir, { recursive: true });
+  const file = (0, import_node_path4.join)(dir, `entransfer-compose-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
   let win = null;
   try {
-    await import_node_fs2.promises.writeFile(file, html, "utf8");
+    await import_node_fs4.promises.writeFile(file, html, "utf8");
     win = new BrowserWindow({ show: false, width: 794, height: 1123, webPreferences: { sandbox: true, backgroundThrottling: false } });
     await win.loadFile(file);
     await withTimeout(
@@ -1754,11 +2133,11 @@ async function printHtmlToPdf(html, outPath, workTmpDir) {
     const head = data.subarray(0, 5).toString("latin1");
     const tail = data.subarray(-1024).toString("latin1");
     if (head !== "%PDF-" || !tail.includes("%%EOF")) throw new Error("printToPDF produced invalid PDF");
-    await import_node_fs2.promises.mkdir((0, import_node_path2.join)(outPath, ".."), { recursive: true });
-    await import_node_fs2.promises.writeFile(outPath, data);
+    await import_node_fs4.promises.mkdir((0, import_node_path4.join)(outPath, ".."), { recursive: true });
+    await import_node_fs4.promises.writeFile(outPath, data);
   } finally {
     win?.destroy();
-    await import_node_fs2.promises.rm(file, { force: true }).catch(() => void 0);
+    await import_node_fs4.promises.rm(file, { force: true }).catch(() => void 0);
   }
 }
 function withTimeout(p, ms, msg) {
@@ -1842,8 +2221,8 @@ function norm(s) {
 
 // electron/models/translation-cache.ts
 var import_node_crypto = require("node:crypto");
-var import_node_fs3 = require("node:fs");
-var import_node_path3 = require("node:path");
+var import_node_fs5 = require("node:fs");
+var import_node_path5 = require("node:path");
 var TranslationCache = class {
   root;
   pending = /* @__PURE__ */ new Map();
@@ -1855,13 +2234,13 @@ var TranslationCache = class {
     return (0, import_node_crypto.createHash)("sha256").update(`${k.modelId}\0${k.promptVersion}\0${k.temperature}\0${k.source}\0${k.masked}`, "utf8").digest("hex");
   }
   pathFor(hash) {
-    return (0, import_node_path3.join)(this.root, hash.slice(0, 2), hash + ".json");
+    return (0, import_node_path5.join)(this.root, hash.slice(0, 2), hash + ".json");
   }
   async get(hash) {
     try {
       const w = this.pending.get(hash);
       if (w) await w;
-      const raw = await import_node_fs3.promises.readFile(this.pathFor(hash), "utf8");
+      const raw = await import_node_fs5.promises.readFile(this.pathFor(hash), "utf8");
       const e = JSON.parse(raw);
       if (typeof e.translated !== "string" || e.translated.length === 0) return null;
       return e;
@@ -1874,10 +2253,10 @@ var TranslationCache = class {
     const p = (async () => {
       try {
         const file = this.pathFor(hash);
-        await import_node_fs3.promises.mkdir((0, import_node_path3.dirname)(file), { recursive: true });
+        await import_node_fs5.promises.mkdir((0, import_node_path5.dirname)(file), { recursive: true });
         const tmp = `${file}.${process.pid}.${this.putSeq += 1}.tmp`;
-        await import_node_fs3.promises.writeFile(tmp, JSON.stringify(entry), "utf8");
-        await import_node_fs3.promises.rename(tmp, file);
+        await import_node_fs5.promises.writeFile(tmp, JSON.stringify(entry), "utf8");
+        await import_node_fs5.promises.rename(tmp, file);
       } catch (err) {
         console.warn("[cache] put failed:", err.message);
       } finally {
@@ -1891,9 +2270,9 @@ var TranslationCache = class {
   async size() {
     let n = 0;
     try {
-      const shards = await import_node_fs3.promises.readdir(this.root);
+      const shards = await import_node_fs5.promises.readdir(this.root);
       for (const s of shards) {
-        const files = await import_node_fs3.promises.readdir((0, import_node_path3.join)(this.root, s));
+        const files = await import_node_fs5.promises.readdir((0, import_node_path5.join)(this.root, s));
         n += files.filter((f) => f.endsWith(".json")).length;
       }
     } catch {
@@ -2020,7 +2399,7 @@ function clamp100(n) {
 }
 function resolveFontPath() {
   const appRoot = import_electron.app?.getAppPath?.() ?? process.cwd();
-  return import_node_path4.default.join(appRoot, "assets", "fonts", "MicrosoftYaHei-Regular-subset.ttf");
+  return import_node_path6.default.join(appRoot, "assets", "fonts", "MicrosoftYaHei-Regular-subset.ttf");
 }
 function buildTasks(blocks) {
   const tasks = [];
@@ -2064,7 +2443,7 @@ function writeBack(blocks, task, translated) {
 }
 function createPipeline(modelManager, jobsDir, options = {}) {
   const checkpoint = new CheckpointStore(jobsDir);
-  const cache = new TranslationCache(import_node_path4.default.join(jobsDir, "..", "translations"));
+  const cache = new TranslationCache(import_node_path6.default.join(jobsDir, "..", "translations"));
   const cacheStats = { cacheHits: 0 };
   const pageLimit = options.pageLimit && options.pageLimit > 0 ? options.pageLimit : void 0;
   return {
@@ -2254,8 +2633,8 @@ function createPipeline(modelManager, jobsDir, options = {}) {
       ];
       if (reportRows.length > 0) {
         try {
-          await import_node_fs4.promises.writeFile(
-            import_node_path4.default.join(checkpoint.getJobDir(job.id), "quality-report.jsonl"),
+          await import_node_fs6.promises.writeFile(
+            import_node_path6.default.join(checkpoint.getJobDir(job.id), "quality-report.jsonl"),
             reportRows.map((f) => JSON.stringify(f)).join("\n") + "\n",
             "utf8"
           );
@@ -2270,7 +2649,7 @@ function createPipeline(modelManager, jobsDir, options = {}) {
       const fallbackKeys = /* @__PURE__ */ new Set([...fallbacks.map((f) => f.unit), ...garbage.map((g) => g.id)]);
       try {
         console.log("[pipeline] chromium compose+print starting...");
-        await printHtmlToPdf(blocksToHtml(blocks, { fallbackKeys }), job.outputPath, import_node_path4.default.join(jobsDir, "..", "tmp"));
+        await printHtmlToPdf(blocksToHtml(blocks, { fallbackKeys }), job.outputPath, import_node_path6.default.join(jobsDir, "..", "tmp"));
         console.log(`[pipeline] chromium typeset done in ${((Date.now() - t1) / 1e3).toFixed(1)}s`);
       } catch (err) {
         console.warn(`[pipeline] chromium typeset failed (${err.message}); falling back to pdf-lib`);
@@ -2288,7 +2667,7 @@ function createPipeline(modelManager, jobsDir, options = {}) {
       });
       let stat;
       try {
-        stat = await import_node_fs4.promises.stat(job.outputPath);
+        stat = await import_node_fs6.promises.stat(job.outputPath);
       } catch (err) {
         throw new Error(`\u8F93\u51FA PDF \u672A\u751F\u6210\uFF1A${err.message}`);
       }

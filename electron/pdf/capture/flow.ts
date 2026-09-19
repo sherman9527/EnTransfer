@@ -22,6 +22,8 @@
 import * as fs from 'node:fs'
 import * as zlib from 'node:zlib'
 import * as pdfjsNamespace from 'pdfjs-dist/legacy/build/pdf.js'
+import { LayoutDetector } from './layout-detector'
+import { renderForDetect, renderClip, disposeRenderer } from './page-renderer'
 import {
   PDFDocument,
   PDFName,
@@ -87,7 +89,7 @@ export interface FlowCaptureResult {
  * id-keyed translations from a differently-shaped capture — block ids are
  * positional, so a shifted stream would silently misassign text.
  */
-export const CAPTURE_VERSION = 2
+export const CAPTURE_VERSION = 3
 
 // ---------------------------------------------------------------------------
 // Internal types
@@ -1012,6 +1014,157 @@ export interface CaptureFlowOptions {
   pageLimit?: number
 }
 
+/** A detected figure region in PAGE-POINT, bottom-up coordinates. */
+interface FigureRegion {
+  page: number
+  xLeft: number
+  xRight: number
+  yTop: number
+  yBot: number
+}
+
+// C1 conservative gate: only rasterize SPARSE line-art diagrams. Measured on the
+// whole book (docs/PDFZH-COMPARE.md #21): ink coverage can't separate a
+// misclassified table (p55 18%) from real dense charts (p138/p147 17-19%), but
+// genuine vector diagrams sit well under 12% (p57 ladder = 5.6%). Rasterizing
+// only low-ink regions recovers clean figures with zero table/text loss.
+const FIGURE_MAX_INK_PCT = 12
+const FIGURE_MIN_INK_PCT = 0.5
+
+/** Fraction (0..100) of dark pixels of a region, from the 480 detection buffer. */
+function regionInkPct(rgba: Uint8Array, box: { x0: number; y0: number; x1: number; y1: number }, renderW: number, renderH: number): number {
+  const sx = 480 / renderW
+  const sy = 480 / renderH
+  const x0 = Math.max(0, Math.floor(box.x0 * sx)), x1 = Math.min(479, Math.ceil(box.x1 * sx))
+  const y0 = Math.max(0, Math.floor(box.y0 * sy)), y1 = Math.min(479, Math.ceil(box.y1 * sy))
+  const w = x1 - x0, h = y1 - y0
+  if (w < 2 || h < 2) return 100
+  let dark = 0
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    const i = (y * 480 + x) * 4
+    if ((rgba[i] + rgba[i + 1] + rgba[i + 2]) / 3 < 160) dark++
+  }
+  return (dark / (w * h)) * 100
+}
+
+/**
+ * Detect figure/chart regions, keeping only SPARSE (low-ink) ones, deduped
+ * against already-extracted bitmaps. Returns page-point bottom-up regions.
+ * [] when the detector/canvas backend is unavailable (graceful no-op).
+ */
+async function detectFigureRegions(
+  inputPath: string,
+  max: number,
+  matchedImages: Array<{ image: ExtractedImage; placement: ImagePlacement }>
+): Promise<FigureRegion[]> {
+  const detector = new LayoutDetector()
+  let loaded = false
+  try {
+    loaded = await detector.ensureLoaded()
+  } catch {
+    loaded = false
+  }
+  if (!loaded) {
+    if (detector.error) console.log(`[capture/flow] layout pass skipped: ${detector.error}`)
+    return []
+  }
+  const covered = new Map<number, Array<{ c: number; h: number }>>()
+  for (const m of matchedImages) {
+    const arr = covered.get(m.placement.page) ?? []
+    arr.push({ c: m.placement.centerY, h: m.placement.displayH })
+    covered.set(m.placement.page, arr)
+  }
+  const DETECT_SCALE = 1.5
+  const regions: FigureRegion[] = []
+  const t0 = Date.now()
+  for (let page = 1; page <= max; page++) {
+    let buf
+    try {
+      buf = await renderForDetect(inputPath, page, DETECT_SCALE)
+    } catch {
+      continue
+    }
+    if (!buf) continue
+    let boxes
+    try {
+      boxes = await detector.detect(buf.rgba, buf.renderW, buf.renderH)
+    } catch {
+      continue
+    }
+    const pageHpt = buf.renderH / buf.scale
+    const cov = covered.get(page) ?? []
+    for (const b of boxes) {
+      if (b.cls !== 'image' && b.cls !== 'chart') continue
+      const yTop = pageHpt - b.y0 / buf.scale
+      const yBot = pageHpt - b.y1 / buf.scale
+      const xLeft = b.x0 / buf.scale
+      const xRight = b.x1 / buf.scale
+      const h = yTop - yBot
+      if (h < 40 || xRight - xLeft < 60) continue // noise slivers (min diagram size)
+      const centerY = (yTop + yBot) / 2
+      if (cov.some((c) => Math.abs(c.c - centerY) < (c.h + h) * 0.4)) continue // bitmap already there
+      const ink = regionInkPct(buf.rgba, b, buf.renderW, buf.renderH)
+      if (ink < FIGURE_MIN_INK_PCT || ink > FIGURE_MAX_INK_PCT) continue // dense chart/table or blank -> leave to text path
+      regions.push({ page, xLeft, xRight, yTop, yBot })
+    }
+  }
+  console.log(`[capture/flow] layout detect: ${regions.length} sparse figure regions (ink<=${FIGURE_MAX_INK_PCT}%) in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
+  return regions
+}
+
+/** True if a line's anchor falls inside any kept figure region on its page. */
+function lineInRegion(line: RawLine, regionsByPage: Map<number, FigureRegion[]>): boolean {
+  const rs = regionsByPage.get(line.page)
+  if (!rs) return false
+  for (const r of rs) {
+    if (line.x >= r.xLeft - 2 && line.x <= r.xRight + 2 && line.y >= r.yBot - 2 && line.y <= r.yTop + 2) return true
+  }
+  return false
+}
+
+/** Rasterize kept regions to PNG image blocks (2x), for reading-order interleave. */
+async function emitRegionImages(inputPath: string, regions: FigureRegion[]): Promise<Array<{ block: ContentBlock; page: number; topY: number }>> {
+  if (regions.length === 0) return []
+  const CLIP_SCALE = 2
+  const entries: Array<{ block: ContentBlock; page: number; topY: number }> = []
+  const pageHptCache = new Map<number, number>()
+  for (const r of regions) {
+    let pageHpt = pageHptCache.get(r.page)
+    if (pageHpt === undefined) {
+      const probe = await renderForDetect(inputPath, r.page, 1)
+      pageHpt = probe ? probe.renderH / probe.scale : 792
+      pageHptCache.set(r.page, pageHpt)
+    }
+    const clipBox = {
+      x0: r.xLeft * CLIP_SCALE,
+      y0: (pageHpt - r.yTop) * CLIP_SCALE,
+      x1: r.xRight * CLIP_SCALE,
+      y1: (pageHpt - r.yBot) * CLIP_SCALE
+    }
+    let clip
+    try {
+      clip = await renderClip(inputPath, r.page, clipBox, CLIP_SCALE)
+    } catch {
+      continue
+    }
+    if (!clip || clip.png.length < 1024) continue
+    entries.push({
+      block: {
+        type: 'image',
+        page: r.page,
+        imageData: new Uint8Array(clip.png),
+        imageFormat: 'png',
+        imagePixelWidth: clip.w,
+        imagePixelHeight: clip.h
+      },
+      page: r.page,
+      topY: r.yTop
+    })
+  }
+  await disposeRenderer().catch(() => undefined)
+  return entries
+}
+
 /**
  * Extract a flat content-block stream from the PDF at `inputPath`.
  *
@@ -1109,13 +1262,26 @@ export async function captureFlow(
   }
   console.log(`[capture/flow] extracted ${imageCount} images from ${max} pages`)
 
+  // C1 layout detection (BEFORE prose assembly): sparse figure regions, so their
+  // extractable labels can be dropped from prose (they'd otherwise leak in as
+  // garbage and collide with the rasterized figure).
+  const figureRegions = await detectFigureRegions(inputPath, max, matchedImages)
+  const regionsByPage = new Map<number, FigureRegion[]>()
+  for (const r of figureRegions) {
+    const a = regionsByPage.get(r.page) ?? []
+    a.push(r)
+    regionsByPage.set(r.page, a)
+  }
+
   // Step 3.5: drop repeated running heads/feet, then detect tables from
   // RawLines (>=3 column cells, consecutive rows).
   // Table lines are pulled out of the prose stream and emitted as TableBlocks.
+  // Detect tables on the FULL line set (a figure region must not starve table
+  // detection of its grid lines), THEN drop leaked labels from prose only.
   const bodyLines = dropRepeatedEdgeText(allLines, max)
   const { tables, skip: tableLines } = detectTables(bodyLines)
   console.log(`[capture/flow] detected ${tables.length} tables`)
-  const proseLines = bodyLines.filter((l) => !tableLines.has(l))
+  const proseLines = bodyLines.filter((l) => !tableLines.has(l) && !lineInRegion(l, regionsByPage))
   const tableEntries = tables.map((t) => ({
     block: {
       type: 'table',
@@ -1286,6 +1452,20 @@ export async function captureFlow(
       blockEntries.splice(insertIdx, 0, { block: imgBlock, page: placement.page, topY: placement.centerY })
     }
   }
+
+  // Step 7.5: C1 — rasterize the detected sparse figure regions into image
+  // blocks (their leaked labels were already dropped from prose above).
+  const layoutEntries = await emitRegionImages(inputPath, figureRegions)
+  for (const entry of layoutEntries) {
+    let insertIdx = blockEntries.length
+    for (let i = 0; i < blockEntries.length; i++) {
+      const e = blockEntries[i]
+      if (e.page === entry.page && e.topY > entry.topY) { insertIdx = i; break }
+      if (e.page > entry.page) { insertIdx = i; break }
+    }
+    blockEntries.splice(insertIdx, 0, entry)
+  }
+  imageCount += layoutEntries.length
 
   // Step 8: interleave table blocks (already extracted from the prose stream).
   // Insert each table at the right reading position by page + topY.
