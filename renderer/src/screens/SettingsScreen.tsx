@@ -221,7 +221,7 @@ export function SettingsScreen() {
       {/* About */}
       <section className="rounded-card border border-line bg-card p-5">
         <h2 className="mb-2 text-sm font-semibold text-ink">关于</h2>
-        <p className="text-xs text-ink2">EnTransfer v0.1.0</p>
+        <p className="text-xs text-ink2">译事郎 v0.1.0</p>
         <p className="mt-1 text-xs text-ink3">
           本地 PDF 翻译与排版工具，所有处理均在本机完成，不上传任何文件。
         </p>

@@ -1,9 +1,9 @@
 {
     "name": "entransfer",
     "version": "0.1.0",
-    "description": "EnTransfer 闁?local PDF translation & typesetting desktop app",
+    "description": "译事郎 — offline local PDF translation & typesetting desktop app",
     "private": true,
-    "author": "EnTransfer",
+    "author": "译事郎",
     "license": "MIT",
     "main": "out/main/index.js",
     "scripts": {
@@ -49,7 +49,7 @@
     },
     "build": {
         "appId": "com.entransfer.app",
-        "productName": "EnTransfer",
+        "productName": "译事郎",
         "asar": true,
         "npmRebuild": false,
         "directories": {
@@ -95,7 +95,7 @@
             "allowToChangeInstallationDirectory": true,
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true,
-            "shortcutName": "EnTransfer",
+            "shortcutName": "译事郎",
             "installerIcon": "build/icon.ico",
             "uninstallerIcon": "build/icon.ico",
             "deleteAppDataOnUninstall": true,
