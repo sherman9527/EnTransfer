@@ -189,6 +189,17 @@ console.log('R18 running furniture detection')
   check('real body paragraph -> NOT furniture', !isRunningFurniture('lakehouses leverage low-cost object stores like Amazon S3', 214, H))
 }
 
+// R19 — regression guard: the Roman/lone-number rule must be edge-gated, or it
+// drops real short content lines that happen to be spelled with i/v/x/l/c/d/m.
+console.log('R19 furniture Roman rule is edge-gated')
+{
+  const H = 612
+  check('mid-page "mill" -> NOT furniture', !isRunningFurniture('mill', 300, H))
+  check('mid-page "civic" -> NOT furniture', !isRunningFurniture('civic', 300, H))
+  check('edge Roman "iv" -> furniture', isRunningFurniture('iv', 585, H))
+  check('edge lone number "16" -> furniture', isRunningFurniture('16', 42, H))
+}
+
 // ---------------------------------------------------------------------------
 
 if (failures > 0) {

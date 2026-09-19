@@ -66,7 +66,9 @@ export function isRunningFurniture(text: string, y: number, pageHeight: number, 
   // "<num> | ..." or "... | <num>" (allow the glued variants "16|Chapter", "数据仓库|5")
   const pipeNum = /^\d{1,4}\s*\|\s*\S/.test(t) || /\S\s*\|\s*\d{1,4}$/.test(t)
   if (pipeNum && nearEdge) return true
-  // a lone page number (Arabic or Roman)
-  if (/^\d{1,4}$/.test(t) || /^[ivxlcdm]{1,6}$/i.test(t)) return true
+  // A lone page number (Arabic or Roman) — ONLY near an edge. Without the
+  // nearEdge gate, /^[ivxlcdm]{1,6}$/i matches real words ("mill", "civic",
+  // "mid") and would drop mid-page content (regression guard R19).
+  if (nearEdge && (/^\d{1,4}$/.test(t) || /^[ivxlcdm]{1,7}$/i.test(t))) return true
   return false
 }
