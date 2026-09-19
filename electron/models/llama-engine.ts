@@ -144,8 +144,8 @@ export class LlamaCppEngine {
   private threads: number
   private contextSize: number
   readonly temperature: number
-  private readonly topK: number
-  private readonly topP: number
+  readonly topK: number
+  readonly topP: number
   private readonly prefixCaching: boolean
   private readonly kvCacheValueType: string | undefined
   private device: DevicePreference

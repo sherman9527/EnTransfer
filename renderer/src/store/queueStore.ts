@@ -41,6 +41,12 @@ export const STATUS_META: Record<JobStatus, { label: string; text: string; bar: 
   error: { label: '失败', text: 'text-danger', bar: 'bg-danger' }
 }
 
+// Guards against stale async writes (bug #9): `rev` bumps on every upsert so a
+// slow fetchJobs can detect it was superseded; `tombstones` remembers deleted
+// ids so an in-flight push can't resurrect them until the next authoritative fetch.
+let rev = 0
+const tombstones = new Set<string>()
+
 export const useQueueStore = create<QueueState>((set, get) => ({
   jobs: [],
   loading: false,
@@ -52,8 +58,13 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 
   fetchJobs: async () => {
     set({ loading: true })
+    const revAtStart = rev
     try {
       const jobs = await jobApi.list()
+      // Discard a stale list if any add/update event landed during the await
+      // (bug #9a: otherwise the older response drops/reorders a newer job).
+      if (rev !== revAtStart) return
+      tombstones.clear() // authoritative snapshot — deleted jobs are gone
       set({ jobs })
     } catch (err) {
       console.error('[queue] fetchJobs failed', err)
@@ -97,11 +108,13 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 
   removeJob: async (id) => {
     setBusy(id, true)
+    tombstones.add(id)
     try {
       await jobApi.remove(id)
       set((s) => ({ jobs: s.jobs.filter((j) => j.id !== id) }))
     } catch (err) {
       console.error('[queue] removeJob failed', err)
+      tombstones.delete(id) // removal failed — allow future pushes for it again
     } finally {
       setBusy(id, false)
     }
@@ -134,6 +147,10 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 // ---------------------------------------------------------------------------
 
 function upsertJob(job: TranslationJob): void {
+  rev++
+  // A job the user just deleted can still have an in-flight push; ignore it so
+  // it isn't re-appended (bug #9b). Tombstones clear on the next authoritative fetch.
+  if (tombstones.has(job.id)) return
   useQueueStore.setState((s) => {
     const exists = s.jobs.some((j) => j.id === job.id)
     // FIFO display: update in place, or append a new job to the BACK so the

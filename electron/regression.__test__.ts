@@ -108,10 +108,12 @@ console.log('R8 sentinel-leak probe is stateless across calls')
 // ---------------------------------------------------------------------------
 console.log('R2 cache key: temperature/model/prompt sensitivity')
 {
-  const base = { modelId: 'qwen3-1.7b-q4_k_m', promptVersion: 'p1-numbered', temperature: 0.1, source: 'text', masked: 'text' }
+  const base = { modelId: 'qwen3-1.7b-q4_k_m', promptVersion: 'p1-numbered', temperature: 0.1, topK: 20, topP: 0.9, source: 'text', masked: 'text' }
   check('different temperature → different key', TranslationCache.hashKey(base) !== TranslationCache.hashKey({ ...base, temperature: 0.7 }))
   check('different quant-in-modelId → different key', TranslationCache.hashKey(base) !== TranslationCache.hashKey({ ...base, modelId: 'qwen3-1.7b-q3_k_m' }))
   check('different promptVersion → different key', TranslationCache.hashKey(base) !== TranslationCache.hashKey({ ...base, promptVersion: 'p0' }))
+  check('different topK → different key', TranslationCache.hashKey(base) !== TranslationCache.hashKey({ ...base, topK: 40 }))
+  check('different topP → different key', TranslationCache.hashKey(base) !== TranslationCache.hashKey({ ...base, topP: 0.5 }))
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +124,7 @@ console.log('R9 cache: concurrent same-key puts')
   const dir = await mkdtemp(join(tmpdir(), 'entransfer-cache-'))
   try {
     const cache = new TranslationCache(dir)
-    const hash = TranslationCache.hashKey({ modelId: 'm', promptVersion: 'p', temperature: 0.1, source: 's', masked: 's' })
+    const hash = TranslationCache.hashKey({ modelId: 'm', promptVersion: 'p', temperature: 0.1, topK: 20, topP: 0.9, source: 's', masked: 's' })
     await Promise.all([cache.put(hash, '译文一', 3), cache.put(hash, '译文二', 3)])
     const hit = await cache.get(hash)
     check('entry readable after concurrent puts', hit !== null && ['译文一', '译文二'].includes(hit.translated))

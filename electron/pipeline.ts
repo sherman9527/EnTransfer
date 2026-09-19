@@ -38,8 +38,10 @@ import type { ModelManager } from './models/manager'
 /** The narrow engine surface this module depends on. */
 interface PipelineEngine {
   readonly id?: string
-  /** actual sampling temperature — must key the translation cache */
+  /** actual sampling params — must key the translation cache */
   readonly temperature?: number
+  readonly topK?: number
+  readonly topP?: number
   translate(
     text: string,
     options?: { signal?: AbortSignal }
@@ -242,8 +244,12 @@ export function createPipeline(
       // captures which units tripped it.
       let breakerMsg: string | null = null
       const checkBreaker = (): void => {
-        if (breakerMsg === null && translatedCount >= 200 && fallbacks.length / translatedCount > 0.3) {
-          breakerMsg = `翻译质量熔断：已处理 ${translatedCount} 单元，回退 ${fallbacks.length}（>30%），中止任务`
+        // Denominator = units actually translated THIS run, not recovered ones
+        // (bug #15: including recovered.size dilutes the ratio so a resumed
+        // run that fails 100% of its NEW units never trips the breaker).
+        const processed = translatedCount - recovered.size
+        if (breakerMsg === null && processed >= 200 && fallbacks.length / processed > 0.3) {
+          breakerMsg = `翻译质量熔断：本次已处理 ${processed} 单元，回退 ${fallbacks.length}（>30%），中止任务`
         }
       }
       // Runtime GPU→CPU failover (user requirement): a mid-generation engine
@@ -457,7 +463,7 @@ async function translateText(
 ): Promise<TranslateAttempt> {
   const expanded = expandAbbreviations(source)
   const { text: masked, placeholders } = freezeProtected(expanded)
-  const key = { modelId: engine.id ?? 'llama', promptVersion: PROMPT_VERSION, temperature: engine.temperature ?? 0.1, source, masked }
+  const key = { modelId: engine.id ?? 'llama', promptVersion: PROMPT_VERSION, temperature: engine.temperature ?? 0.1, topK: engine.topK ?? 20, topP: engine.topP ?? 0.9, source, masked }
   const hash = TranslationCache.hashKey(key)
   const hit = await cache.get(hash)
   if (hit && validateRestored(source, hit.translated).ok) {

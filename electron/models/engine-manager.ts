@@ -58,6 +58,11 @@ export class EngineManager {
     const key = `${modelId}|${device}|${threadsMode}|${manualThreads}`
 
     if (this.engine && this.currentKey === key && this.engine.isLoaded) {
+      // Healthy reuse: the engine survived at least one generation since the
+      // last rebuild, so any earlier transient failures are no longer
+      // "consecutive". Reset the cap counter (bug #4: without this, 4 scattered
+      // transient errors over a long job trip the >3 cap and kill a healthy run).
+      this.sickRebuilds = 0
       return this.engine
     }
     await this.unload()

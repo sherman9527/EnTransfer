@@ -2,10 +2,11 @@
 //
 // Re-running a book after a layout/prompt-plumbing change must cost ZERO model
 // time, and crash-resume must never re-translate units whose translation is
-// already durable. Key = sha256(modelId | quant-label | promptVersion |
-// temperature | sourceText | maskedText) so ANY input that can change the
-// output invalidates the entry; a cache HIT is still re-validated by the
-// caller's invariants (cache is not trusted, invariants are).
+// already durable. Key = sha256(modelId | promptVersion | temperature | topK |
+// topP | sourceText | maskedText). modelId already encodes the quant label
+// (e.g. "qwen3-1.7b-q4_k_m"); systemPrompt changes MUST bump PROMPT_VERSION.
+// Any input that can change the output is in the key; a cache HIT is still
+// re-validated by the caller's invariants (cache is not trusted, invariants are).
 //
 // On-disk layout: <root>/<hash[0:2]>/<hash>.json — sharded, diffable, and a
 // user can delete the whole folder safely (pure derived data).
@@ -17,6 +18,8 @@ export interface CacheKey {
   modelId: string
   promptVersion: string
   temperature: number
+  topK: number
+  topP: number
   source: string
   masked: string
 }
@@ -39,7 +42,7 @@ export class TranslationCache {
 
   static hashKey(k: CacheKey): string {
     return createHash('sha256')
-      .update(`${k.modelId}\u0000${k.promptVersion}\u0000${k.temperature}\u0000${k.source}\u0000${k.masked}`, 'utf8')
+      .update(`${k.modelId}\u0000${k.promptVersion}\u0000${k.temperature}\u0000${k.topK}\u0000${k.topP}\u0000${k.source}\u0000${k.masked}`, 'utf8')
       .digest('hex')
   }
 
