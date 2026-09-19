@@ -22,6 +22,8 @@
 import * as fs from 'node:fs'
 import * as zlib from 'node:zlib'
 import * as pdfjsNamespace from 'pdfjs-dist/legacy/build/pdf.js'
+import { LayoutDetector } from './layout-detector'
+import { renderForDetect, renderClip, disposeRenderer, type DetectBuffer } from './page-renderer'
 import {
   PDFDocument,
   PDFName,
@@ -87,7 +89,7 @@ export interface FlowCaptureResult {
  * id-keyed translations from a differently-shaped capture — block ids are
  * positional, so a shifted stream would silently misassign text.
  */
-export const CAPTURE_VERSION = 2
+export const CAPTURE_VERSION = 3
 
 // ---------------------------------------------------------------------------
 // Internal types
@@ -1018,6 +1020,95 @@ export interface CaptureFlowOptions {
  * @param inputPath path to the source PDF.
  * @param options   optional pageLimit for fast tests.
  */
+/**
+ * C1 layout pass: detect figure/chart regions per page and rasterize the ones
+ * not already covered by an extracted bitmap. Returns image-block entries with
+ * topY in bottom-up page points (same convention as matchedImages). Never
+ * throws — returns [] when the detector/canvas backend is unavailable.
+ */
+async function runLayoutPass(
+  inputPath: string,
+  max: number,
+  matchedImages: Array<{ image: ExtractedImage; placement: ImagePlacement }>
+): Promise<Array<{ block: ContentBlock; page: number; topY: number }>> {
+  const detector = new LayoutDetector()
+  let loaded = false
+  try {
+    loaded = await detector.ensureLoaded()
+  } catch {
+    loaded = false
+  }
+  if (!loaded) {
+    if (detector.error) console.log(`[capture/flow] layout pass skipped: ${detector.error}`)
+    return []
+  }
+
+  // Existing bitmap coverage per page, in bottom-up page points (centerY ± half height).
+  const covered = new Map<number, Array<{ c: number; h: number }>>()
+  for (const m of matchedImages) {
+    const arr = covered.get(m.placement.page) ?? []
+    arr.push({ c: m.placement.centerY, h: m.placement.displayH })
+    covered.set(m.placement.page, arr)
+  }
+
+  const DETECT_SCALE = 1.5
+  const CLIP_SCALE = 2
+  const entries: Array<{ block: ContentBlock; page: number; topY: number }> = []
+  let detected = 0
+  let skippedOverlap = 0
+  const t0 = Date.now()
+  for (let page = 1; page <= max; page++) {
+    let buf: DetectBuffer | null
+    try {
+      buf = await renderForDetect(inputPath, page, DETECT_SCALE)
+    } catch {
+      continue
+    }
+    if (!buf) continue
+    let boxes
+    try {
+      boxes = await detector.detect(buf.rgba, buf.renderW, buf.renderH)
+    } catch {
+      continue
+    }
+    const pageHpt = buf.renderH / buf.scale
+    const cov = covered.get(page) ?? []
+    for (const b of boxes) {
+      if (b.cls !== 'image' && b.cls !== 'chart') continue
+      const topPt = pageHpt - b.y0 / buf.scale
+      const botPt = pageHpt - b.y1 / buf.scale
+      const centerY = (topPt + botPt) / 2
+      const h = topPt - botPt
+      if (h < 24 || (b.x1 - b.x0) / buf.scale < 40) continue // noise slivers
+      // Overlap with an already-extracted bitmap → skip (avoid double figure).
+      if (cov.some((c) => Math.abs(c.c - centerY) < (c.h + h) * 0.4)) { skippedOverlap++; continue }
+      let clip
+      try {
+        clip = await renderClip(inputPath, page, { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 }, CLIP_SCALE)
+      } catch {
+        continue
+      }
+      if (!clip || clip.png.length < 1024) continue
+      entries.push({
+        block: {
+          type: 'image',
+          page,
+          imageData: new Uint8Array(clip.png),
+          imageFormat: 'png',
+          imagePixelWidth: clip.w,
+          imagePixelHeight: clip.h
+        },
+        page,
+        topY: topPt
+      })
+      detected++
+    }
+  }
+  console.log(`[capture/flow] layout pass: +${detected} figure/chart regions (${skippedOverlap} overlapped existing bitmaps) in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
+  await disposeRenderer().catch(() => undefined)
+  return entries
+}
+
 export async function captureFlow(
   inputPath: string,
   options: CaptureFlowOptions = {}
@@ -1286,6 +1377,22 @@ export async function captureFlow(
       blockEntries.splice(insertIdx, 0, { block: imgBlock, page: placement.page, topY: placement.centerY })
     }
   }
+
+  // Step 7.5: C1 layout pass — rasterize vector figures/charts the bitmap path
+  // can't decode (recall 18% → 94%, docs/PDFZH-COMPARE.md). Skips regions an
+  // extracted bitmap already covers; degrades to no-op when the detector or the
+  // native canvas backend is unavailable, so capture is never blocked by it.
+  const layoutEntries = await runLayoutPass(inputPath, max, matchedImages)
+  for (const entry of layoutEntries) {
+    let insertIdx = blockEntries.length
+    for (let i = 0; i < blockEntries.length; i++) {
+      const e = blockEntries[i]
+      if (e.page === entry.page && e.topY > entry.topY) { insertIdx = i; break }
+      if (e.page > entry.page) { insertIdx = i; break }
+    }
+    blockEntries.splice(insertIdx, 0, entry)
+  }
+  imageCount += layoutEntries.length
 
   // Step 8: interleave table blocks (already extracted from the prose stream).
   // Insert each table at the right reading position by page + topY.
