@@ -64,6 +64,8 @@ function createModelManager(): ModelManager {
   const manager = new ModelManager(settings?.current.defaultModel)
   // Push live model status / download progress to the renderer.
   manager.onUpdated = (model) => mainWindow?.webContents.send('model:updated', model)
+  // Engine-level notices (GPU->CPU failover etc.) ride the app:log channel.
+  manager.setOnNotice((msg) => mainWindow?.webContents.send('app:log', msg))
   return manager
 }
 

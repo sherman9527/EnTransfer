@@ -9,18 +9,21 @@ interface QueueState {
   busyIds: Record<string, boolean>
   /** top-level "添加 PDF" / "全部开始" busy flag. */
   working: boolean
+  /** engine-level notices (GPU failover etc.), newest last, capped. */
+  notices: string[]
 
   fetchJobs: () => Promise<void>
   addJob: (inputPath: string) => Promise<void>
   pauseJob: (id: string) => Promise<void>
   resumeJob: (id: string) => Promise<void>
   cancelJob: (id: string) => Promise<void>
-  /** Error-state retry: drop the job record and re-enqueue the same file. */
+  /** Error-state retry: re-enter the queue so the checkpoint resumes. */
   retryJob: (id: string) => Promise<void>
   removeJob: (id: string) => Promise<void>
   openJobFolder: (id: string) => Promise<void>
   /** Resume every paused job (used by the "全部开始" toolbar button). */
   startAll: () => Promise<void>
+  dismissNotices: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -43,6 +46,9 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   loading: false,
   busyIds: {},
   working: false,
+  notices: [],
+
+  dismissNotices: () => set({ notices: [] }),
 
   fetchJobs: async () => {
     set({ loading: true })
@@ -73,14 +79,15 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   cancelJob: withBusy((id) => jobApi.cancel(id)),
 
   retryJob: async (id) => {
+    // Resume the SAME job record rather than remove+re-add: the checkpoint
+    // (already-translated units) and the translation cache are reused, so a
+    // retry after an error continues from ~where it stopped instead of
+    // restarting the whole book. error/paused/canceled all re-enter via queued.
     const job = get().jobs.find((j) => j.id === id)
     if (!job) return
     setBusy(id, true)
     try {
-      await jobApi.remove(id)
-      set((s) => ({ jobs: s.jobs.filter((j) => j.id !== id) }))
-      const recreated = await jobApi.add(job.inputPath)
-      upsertJob(recreated)
+      await jobApi.resume(id)
     } catch (err) {
       console.error('[queue] retryJob failed', err)
     } finally {
@@ -164,3 +171,9 @@ function withBusy(fn: (id: string) => Promise<unknown>): (id: string) => Promise
 // Each push is a full TranslationJob snapshot; upsert by id.
 // ---------------------------------------------------------------------------
 events.onJobUpdate((job) => upsertJob(job))
+
+// Engine-level notices (GPU->CPU failover, etc.) arrive on the app:log
+// channel; surface the last few as a dismissible banner.
+events.onLog((line) => {
+  useQueueStore.setState((s) => ({ notices: [...s.notices.filter((n) => n !== line).slice(-4), line] }))
+})

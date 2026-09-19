@@ -74,6 +74,8 @@ export class JobManager {
   private pipeline: TranslationPipeline | null = null
   private readonly aborts = new Map<string, AbortController>()
   private readonly reasons = new Map<string, AbortReason>()
+  /** per-job progress-rate sampling for ETA (t=last sample ms, p=last progress, ema=ms per 100%) */
+  private readonly rateSamples = new Map<string, { t: number; p: number; ema: number }>()
   /** In-flight durable checkpoint writes, awaited before a dir is cleared. */
   private readonly pendingWrites = new Set<Promise<unknown>>()
 
@@ -275,6 +277,19 @@ export class JobManager {
     job.currentPage = page
     job.progress = clamp100(progress)
     job.updatedAt = Date.now()
+    // ETA: EMA over wall-time-per-progress-point, only while progress moves.
+    const now = Date.now()
+    const prev = this.rateSamples.get(job.id)
+    if (prev && job.progress > prev.p + 0.001) {
+      const inst = (now - prev.t) / ((job.progress - prev.p) / 100)
+      const ema = prev.ema > 0 ? prev.ema * 0.7 + inst * 0.3 : inst
+      this.rateSamples.set(job.id, { t: now, p: job.progress, ema })
+      if (job.progress > 5 && job.progress < 100) {
+        job.etaSec = Math.max(1, Math.round(((100 - job.progress) / 100) * ema / 1000))
+      }
+    } else {
+      this.rateSamples.set(job.id, { t: now, p: job.progress, ema: 0 })
+    }
     this.push(job)
     this.trackWrite(
       this.checkpoints.save(job.id, {
@@ -353,6 +368,7 @@ export class JobManager {
     } finally {
       this.aborts.delete(job.id)
       this.reasons.delete(job.id)
+      this.rateSamples.delete(job.id)
       if (this.activeJobId === job.id) this.activeJobId = null
       // Only emit if the job still exists (it may have been `remove()`d mid-run).
       if (this.jobs.has(job.id)) {

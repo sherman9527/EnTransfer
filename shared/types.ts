@@ -25,6 +25,8 @@ export interface TranslationJob {
   createdAt: number
   updatedAt: number
   error?: string
+  /** Estimated seconds to completion while actively running (EMA-smoothed). */
+  etaSec?: number
 }
 
 export type ModelStatus = 'available' | 'downloading' | 'not-downloaded' | 'error'

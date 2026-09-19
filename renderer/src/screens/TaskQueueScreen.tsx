@@ -26,6 +26,12 @@ function basename(p: string): string {
   return parts[parts.length - 1] || p
 }
 
+function fmtEta(sec: number): string {
+  if (sec < 60) return `${sec} 秒`
+  if (sec < 3600) return `${Math.max(1, Math.round(sec / 60))} 分钟`
+  return `${(sec / 3600).toFixed(1)} 小时`
+}
+
 export function TaskQueueScreen() {
   const {
     jobs,
@@ -40,10 +46,13 @@ export function TaskQueueScreen() {
     retryJob,
     removeJob,
     openJobFolder,
-    startAll
+    startAll,
+    notices,
+    dismissNotices
   } = useQueueStore()
 
   const [dragOver, setDragOver] = useState(false)
+  const [dropHint, setDropHint] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -61,7 +70,12 @@ export function TaskQueueScreen() {
     setDragOver(false)
     const file = e.dataTransfer.files?.[0] as (File & { path?: string }) | undefined
     const p = file?.path
-    if (p && /\.pdf$/i.test(p)) void addJob(p)
+    if (p && /\.pdf$/i.test(p)) {
+      void addJob(p)
+    } else if (p) {
+      setDropHint(`仅支持 PDF 文件，已忽略「${basename(p)}」`)
+      window.setTimeout(() => setDropHint(''), 4000)
+    }
   }
 
   const pausedCount = jobs.filter((j) => j.status === 'paused').length
@@ -101,6 +115,18 @@ export function TaskQueueScreen() {
         </div>
       </header>
 
+      {notices.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-card border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
+          <span className="min-w-0">{notices[notices.length - 1]}</span>
+          <button onClick={dismissNotices} className="shrink-0 rounded-btn px-2 py-0.5 hover:bg-warn/20">
+            知道了
+          </button>
+        </div>
+      )}
+      {dropHint && (
+        <div className="rounded-card border border-line bg-panel px-3 py-2 text-xs text-ink2">{dropHint}</div>
+      )}
+
       {loading && jobs.length === 0 ? (
         <div className="flex flex-1 items-center justify-center text-ink3">加载中…</div>
       ) : jobs.length === 0 ? (
@@ -133,7 +159,11 @@ export function TaskQueueScreen() {
               onResume={() => void resumeJob(job.id)}
               onCancel={() => void cancelJob(job.id)}
               onRetry={() => void retryJob(job.id)}
-              onRemove={() => void removeJob(job.id)}
+              onRemove={() => {
+                if (window.confirm(`确定删除「${basename(job.inputPath)}」？已完成的部分译文也会一并删除。`)) {
+                  void removeJob(job.id)
+                }
+              }}
               onOpen={() => void openJobFolder(job.id)}
             />
           ))}
@@ -196,6 +226,7 @@ function JobCard({
               {job.totalPages > 0
                 ? `第 ${job.currentPage} / ${job.totalPages} 页 · ${pct}%`
                 : `${pct}%`}
+              {active && job.etaSec != null && job.etaSec > 0 && ` · 预计剩余 ${fmtEta(job.etaSec)}`}
             </p>
           </div>
         </div>
