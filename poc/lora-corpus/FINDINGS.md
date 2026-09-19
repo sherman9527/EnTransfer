@@ -41,3 +41,25 @@ both System Design Interview vols, Learning React(EN), React in Depth, React Up 
 
 - build-pairs: content-anchored segment aligner for the 2 confirmed pairs → gold SFT JSONL.
 - extract-en: reuse captureFlow (via esbuild bundle, native C1 external) to harvest EN prose.
+
+## Alignment reality check (2026-09-19, after 6+ iterations)
+
+Harvest side is GOOD: `harvest-segments.ts` cleanly yields ordered paragraphs for
+both EN and ZH (CJK de-spaced incl. Kangxi radicals; cMap + standard-font URLs
+required or ZH pages silently drop text). Reusable for the EN eval corpus too.
+
+Align side is NOT production-grade. `build-pairs.ts` (rare-token IDF edges →
+weighted non-crossing monotone chain, + code/index/table filters) reaches only
+~40-60% precision on OpenTelemetry. Root cause: single shared rare tokens
+("resource", "service.version") also occur in adjacent-but-unrelated paragraphs
+and in ZH *table rows* echoing an identifier, so a purely lexical aligner can't
+separate them. Recall also low (~25 clean pairs from 651·302).
+
+Conclusion: to get genuinely gold SFT pairs we need a **bilingual sentence
+embedding** aligner (e.g. LaBSE / a CTranslate2 XLMR) or vecmap-style, not
+heuristic tokens. `otel.pairs.jsonl` is kept only as an experimental seed.
+
+GATING DECISION: before investing further in Qwen3-LoRA data, first benchmark
+purpose-built NMT (Helsinki opus-mt-en-zh 600M + CTranslate2, NLLB-200-3.3B)
+against Qwen3-1.7B. If a dedicated translator wins on quality AND speed, LoRA on
+Qwen3 is the wrong target. See docs/MODEL-AB-2026-09.md.
