@@ -98,18 +98,31 @@ interface TransTask {
 
 /**
  * Walk the block stream and produce a flat list of translation tasks.
- * Code blocks are skipped entirely (verbatim).
+ * Code blocks are skipped entirely (verbatim). Table cells become individual
+ * tasks keyed by [row,col] — the numbered-batch strategy (proven 100% parse
+ * on real tables, poc/speed-v3/table-poc.ts) translates them losslessly
+ * because structure lives in coordinates, never in the model's output.
  */
 function buildTasks(blocks: ContentBlock[]): TransTask[] {
   const tasks: TransTask[] = []
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i]
-    // Code blocks, images, tables and formulas are passed through VERBATIM:
-    // their original (English) content is kept on purpose — tables are too
-    // structure-sensitive to machine-translate (it produced duplicated garbage),
-    // and code/formula must not be touched.
-    if (b.type === 'code' || b.type === 'image' || b.type === 'table' || b.type === 'formula') continue
+    // Code, images and formulas pass through VERBATIM: code/formula must not
+    // be touched, images carry no text.
+    if (b.type === 'code' || b.type === 'image' || b.type === 'formula') continue
     const page = b.page ?? 1
+    if (b.type === 'table') {
+      const cells = b.cells ?? []
+      for (let r = 0; r < cells.length; r++) {
+        for (let c = 0; c < cells[r].length; c++) {
+          const t = (cells[r][c] ?? '').trim()
+          if (t.length > 1) {
+            tasks.push({ id: `b${i}-r${r}c${c}`, sourceText: t, blockIndex: i, cellRow: r, cellCol: c, page })
+          }
+        }
+      }
+      continue
+    }
     if (b.type === 'list') {
       const items = b.items ?? []
       for (let j = 0; j < items.length; j++) {
@@ -224,13 +237,40 @@ export function createPipeline(
       }
 
       // Batch translation: merge consecutive short paragraphs into one request
-      // to amortize prompt-prefill overhead. The delimiter `\n---\n` is a markdown
-      // horizontal rule that instruct models reliably preserve.
-      const BATCH_DELIM = '\n---\n'
+      // to amortize prompt-prefill overhead. Numbered lines ("1. x\n2. y") are
+      // used as the carrier format: measured 5% parse-failure vs 48% for the
+      // previous "\n---\n" delimiter (poc/speed-v3/batch-strategy.ts, n=80).
+      // Parsing maps BY NUMBER, so a model that reorders lines still resolves.
+      const BATCH_SIZE = 4
       const SHORT_MAX_CHARS = 250
-      const BATCH_SIZE = 3
+      const numberJoin = (ts: string[]): string => ts.map((t, i) => `${i + 1}. ${t}`).join('\n')
+      const numberSplit = (out: string, n: number): string[] | null => {
+        const map = new Map<number, string[]>()
+        let last: number | null = null
+        for (const line of out.split('\n')) {
+          const m = /^\s*(\d+)\s*[.、)．]\s*(.*)$/.exec(line)
+          if (m) {
+            const idx = Number(m[1])
+            if (idx >= 1 && idx <= n && !map.has(idx)) {
+              map.set(idx, [m[2].trim()])
+              last = idx
+            } else if (last !== null && m[2].trim()) {
+              map.get(last)!.push(m[2].trim())
+            } else {
+              last = null
+            }
+          } else if (last !== null && line.trim()) {
+            // continuation line of the previous numbered item — keep, don't drop
+            map.get(last)!.push(line.trim())
+          }
+        }
+        if (map.size !== n) return null
+        return Array.from({ length: n }, (_, i) => (map.get(i + 1) as string[]).join(' ').trim())
+      }
       let batchHits = 0
       let batchFalls = 0
+      let cellHits = 0
+      let cellFalls = 0
 
       const saveProgress = async (): Promise<void> => {
         await checkpoint.save(job.id, {
@@ -258,9 +298,69 @@ export function createPipeline(
           continue
         }
 
+        // ---- Table cells: dedicated numbered batches ----------------------
+        // Cells are usually far below the prose batch min length, so they
+        // never enter the prose batcher; the cell format was validated
+        // separately (POC: 12/12 batches parsed, 0 fallback). Up to 8 cells
+        // of the same table per call.
+        if (task.cellRow !== undefined) {
+          const cbatch: TransTask[] = [task]
+          let ci = taskIdx + 1
+          while (
+            cbatch.length < 8 &&
+            ci < tasks.length &&
+            tasks[ci].cellRow !== undefined &&
+            tasks[ci].blockIndex === task.blockIndex &&
+            !recovered.has(tasks[ci].id)
+          ) {
+            cbatch.push(tasks[ci])
+            ci++
+          }
+          const cellTexts = cbatch.map((t) => t.sourceText)
+          let cparts: string[] | null = null
+          if (cbatch.length >= 2) {
+            try {
+              const cout = await translateText(engine, numberJoin(cellTexts), signal)
+              cparts = numberSplit(cout, cbatch.length)
+              if (cparts !== null) cellHits++
+              else cellFalls++
+            } catch (err) {
+              if (signal.aborted) { await saveProgress(); return }
+              throw err
+            }
+          }
+          for (let k = 0; k < cbatch.length; k++) {
+            const t = cbatch[k]
+            let text: string
+            if (cparts !== null) {
+              text = cparts[k]
+            } else {
+              if (signal.aborted) { await saveProgress(); return }
+              try {
+                text = await translateText(engine, t.sourceText, signal)
+              } catch (err) {
+                if (signal.aborted) { await saveProgress(); return }
+                throw err
+              }
+            }
+            writeBack(blocks, t, text)
+            await checkpoint.appendTranslation(job.id, t.id, text)
+            translatedCount++
+            if (t.page > currentPage) { currentPage = t.page; job.currentPage = currentPage }
+            onProgress(currentPage, clamp100(5 + (translatedCount / Math.max(1, total)) * 85))
+          }
+          taskIdx = ci
+          continue
+        }
+
         // ---- Try to batch this task with following short tasks ------------
-        // Collect up to BATCH_SIZE consecutive short, untranslated tasks on the
-        // same page.
+        // Collect up to BATCH_SIZE consecutive short, untranslated prose-like
+        // tasks on the same page. Very short fragments (headings, bullets,
+        // front-matter crumbs) break numbered-list formatting at ~2x the rate
+        // of real sentences, so they go single.
+        const BATCH_MIN_CHARS = 60
+        const batchable = (t: TransTask): boolean =>
+          t.sourceText.length >= BATCH_MIN_CHARS && t.sourceText.length <= SHORT_MAX_CHARS
         const batch: TransTask[] = [task]
         let bi = taskIdx + 1
         while (
@@ -268,8 +368,8 @@ export function createPipeline(
           bi < tasks.length &&
           !recovered.has(tasks[bi].id) &&
           tasks[bi].page === task.page &&
-          tasks[bi].sourceText.length <= SHORT_MAX_CHARS &&
-          task.sourceText.length <= SHORT_MAX_CHARS
+          batchable(tasks[bi]) &&
+          batchable(task)
         ) {
           batch.push(tasks[bi])
           bi++
@@ -277,7 +377,7 @@ export function createPipeline(
 
         if (batch.length >= 2) {
           // ---- Batch translate -------------------------------------------
-          const joinedSource = batch.map((t) => t.sourceText).join(BATCH_DELIM)
+          const joinedSource = numberJoin(batch.map((t) => t.sourceText))
           let translated: string
           try {
             translated = await translateText(engine, joinedSource, signal)
@@ -286,13 +386,14 @@ export function createPipeline(
             throw err
           }
 
-          // Split the output by the delimiter. If the model dropped it, fall
-          // back to individual translation.
-          let parts = translated.split(BATCH_DELIM)
-          if (parts.length !== batch.length) {
-            // Delimiter not preserved — fall back to individual translations.
+          // Split the output by line numbers. If the model broke the format,
+          // fall back to individual translation.
+          const parts = numberSplit(translated, batch.length)
+          if (parts === null) {
+            // Numbered format not preserved — fall back to individual translations.
             batchFalls++
             for (const t of batch) {
+              if (signal.aborted) { await saveProgress(); return }
               const ind = await translateText(engine, t.sourceText, signal)
               writeBack(blocks, t, ind)
               await checkpoint.appendTranslation(job.id, t.id, ind)
@@ -331,7 +432,7 @@ export function createPipeline(
           taskIdx++
         }
       }
-      console.log(`[pipeline] batch translation: ${batchHits} successful, ${batchFalls} fell back to single`)
+      console.log(`[pipeline] prose batches: ${batchHits} ok / ${batchFalls} fallback; cell batches: ${cellHits} ok / ${cellFalls} fallback`)
 
       // ==================================================================
       // Phase 3 — typesetting (fresh A4, flow layout)
