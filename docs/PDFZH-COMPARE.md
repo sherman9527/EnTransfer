@@ -49,15 +49,15 @@ pdfzh 的**架构性选择**（Typst、PyMuPDF、外部 llama-server 进程、GB
 4. **新方案（把 C1 并入 P2 的 PP-DocLayout-S）**：用轻量版面检测 ONNX（PP-DocLayout-S，~10–30MB，CPU 每页几十 ms）**直接输出 figure/table/formula bbox**，绕过脆弱的几何聚类；拿到 bbox 后仍用 Chromium `render({clip})` 栅格化搬运。**C1 的成败现在等价于 PP-DocLayout-S 试验的成败** → P2#PP-DocLayout 提升为 C1 的实现路径，优先级提到 C2 之前。
 5. **回退预案**：若 PP-DocLayout-S 召回也不达 70% 或体积/耗时不划算，则 C1 整体归 §2 否决表，维持"宁缺毋滥（矢量图暂缺，不产垃圾）"现状。
 
-### C2 GBNF grammar 结构化输出（可能替代编号载体）
-- node-llama-cpp v3.20 **有** `LlamaGrammar`（已核）。用它约束模型只输出合法 `{id,zh}[]`，理论上把批次解析失败 4%→近 0，且消除"第7段译到第3位"错配。
-- **A/B**：poc 里对同一 80 例语料，grammar-JSON vs 编号载体，比：解析失败率、tok/s、质量分（掉分>2 不采）。
-- **风险**：grammar 采样可能拖慢解码（拒绝采样）；JSON 转义中文更费 token。**必须实测**。
+### C2 GBNF grammar 结构化输出 —— **实测否决（2026-09-19）**
+- node-llama-cpp v3.20 **有** `createGrammarForJsonSchema`（已核+已测）。POC：`poc/eval-2026/grammar-batch.ts`，同语料 80 段×{size2,size4}×{编号,grammar}，GPU/Vulkan/temp0.1。
+- **结果**：grammar 吞吐 **−12%（b4）～ −35%（b2）**（GBNF 拒绝采样税）；批失败率 grammar {10%,5%} vs 编号 {5%,10%} —— **无一致优势**。
+- **根因**：语法约束只保证 JSON 合法；我们编号载体的"按编号映射"本来就免疫语法错误，真正失败模式是 **id 数量/内容错乱**（语义层），grammar 管不住，照样 5–10%。
+- **判定**：不满足采纳阈值（"失败率严格更低 且 tok/s 损失<10%"）→ 归 §2 否决表。编号载体维持。engine 的 `grammar` 透传与 `createJsonGrammar` 保留为测试设施（4 行，正交能力），不进生产路径。
 
-### C3 mean-logprob 质量门（补 deterministic validator 的盲区）
-- 我们现在只有结构不变式（占位符/回显/数字/长度），**没有连续质量信号**。pdfzh §7.5 用 completion mean logprob < 文档5分位 → 重译。这能抓到"结构全对但译得烂"的漏网。
-- **前提待核**：node-llama-cpp dist 顶层未见 logprob API，但 `bindings/AddonTypes` 有 "probabilit" 字样 → 需先确认 v3.20 能否取每 token logprob；取不到则 C3 整条作废。
-- **A/B**：对已知的"高分结构、低质译文"case，logprob 门能否比 validator 多拦 ≥30%，且重译命中率 >误伤率。
+### C3 mean-logprob 质量门 —— **当前引擎不可行（2026-09-19 核查）**
+- 核查结论：node-llama-cpp v3.20 的公共 API（`LlamaChatSession.promptWithMeta` / engine.translate）**不返回 per-token logprob**——`logits` 只存在于 `LlamaContext.evaluateBatch` 底层类型里。走底层 = 手工重建 chat/采样/防溢出逻辑，且质量分需要额外一次逐 token 评估前向（等于再花一遍 decode 的钱），违背"提速/保质不增加推理税"的前提。
+- **判定**：C3 搁置，并入「llama.cpp / node-llama-cpp 升级跟踪」——若上游暴露 logprob API 再重启。现有 deterministic validator + 熔断继续承担质量闸。
 
 ### C4 跨文档 fuzzy TM + 风格锚
 - 我们缓存是**精确键**（model+promptVer+temp+src+masked），跨文档不复用近似句。pdfzh 用编辑距离 ≥0.92 复用 + 0.80–0.92 作 few-shot + 每批带"上一批末2句"做风格锚。

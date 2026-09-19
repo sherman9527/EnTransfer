@@ -30,6 +30,11 @@ export interface TranslateOpts {
   signal?: AbortSignal
   /** sampling temperature; lower = more deterministic */
   temperature?: number
+  /**
+   * constrained-decoding grammar (opaque LlamaGrammar created via
+   * engine.createJsonSchemaGrammar). Undefined = free-form decoding (default).
+   */
+  grammar?: unknown
 }
 
 /** Result of a single translation call. */

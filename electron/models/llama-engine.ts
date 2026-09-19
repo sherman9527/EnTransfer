@@ -14,7 +14,8 @@ import type {
   LlamaModelOptions,
   ChatWrapper,
   Token,
-  LlamaChatSession
+  LlamaChatSession,
+  LlamaGrammar
 } from 'node-llama-cpp'
 import { loadLlamaCpp } from './llama-cpp-loader.ts'
 import type {
@@ -395,6 +396,7 @@ export class LlamaCppEngine {
         temperature: options?.temperature ?? this.temperature,
         topK: this.topK,
         topP: this.topP,
+        grammar: options?.grammar as LlamaGrammar | undefined,
         signal: options?.signal,
         stopOnAbortSignal: true,
         onTextChunk: () => {
@@ -428,6 +430,19 @@ export class LlamaCppEngine {
   /** Token count of a text under the loaded model's tokenizer (benchmark helper). */
   tokenizeCount(text: string): number {
     return this.model ? this.model.tokenize(text, false).length : 0
+  }
+
+  /** Create a GBNF grammar that forces valid JSON matching `schema`, for use
+   *  as `TranslateOpts.grammar`. Returns undefined (→ free-form decoding) when
+   *  the backend can't build it, so callers can degrade gracefully. (C2 test.) */
+  async createJsonGrammar(schema: unknown): Promise<unknown | undefined> {
+    if (!this.llama) return undefined
+    try {
+      return await this.llama.createGrammarForJsonSchema(schema as never)
+    } catch (err) {
+      console.warn('[llama-engine] createGrammarForJsonSchema failed:', (err as Error).message)
+      return undefined
+    }
   }
 
   /** Release the loaded model and context. Safe to call repeatedly.
