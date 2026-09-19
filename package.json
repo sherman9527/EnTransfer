@@ -15,7 +15,9 @@
         "dist": "electron-vite build && electron-builder --win",
         "postbuild": "node scripts/copy-pdf-worker.js",
         "verify": "node scripts/verify-build.js",
-        "verify:asar": "node scripts/verify-build.js --asar"
+        "verify:asar": "node scripts/verify-build.js --asar",
+        "test": "node electron/regression.__test__.ts",
+        "gate": "npm run typecheck && npm test"
     },
     "dependencies": {
         "@pdf-lib/fontkit": "^1.1.1",
@@ -55,6 +57,7 @@
             "out/**",
             "assets/**",
             "!assets/fonts/NotoSansSC-Regular.ttf",
+            "!assets/fonts/NotoSansSC-Subset.ttf",
             "!assets/fonts/MicrosoftYaHei-Regular.ttf",
             "!assets/fonts/MicrosoftYaHei-Bold.ttf",
             "package.json",

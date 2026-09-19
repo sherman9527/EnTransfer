@@ -11,6 +11,12 @@ const path = require('node:path')
 
 const KEEP_LOCALES = new Set(['zh-CN.pak', 'en-US.pak'])
 
+// ggml-cpu ISA variants shipped by node-llama-cpp's Windows prebuilds. llama.cpp
+// loads the best variant its runtime CPU check accepts, so we only need a
+// ladder: baseline (works on every x86-64), an old-core tier, and tiers for
+// current Intel/AMD. Anything else is ~2 MB of dead weight per file.
+const KEEP_CPU_ISA = new Set(['x64', 'sse42', 'ivybridge', 'haswell', 'alderlake', 'zen4'])
+
 exports.default = async function afterPack(context) {
   const appOutDir = context.appOutDir
   const log = (m) => console.log(`[after-pack] ${m}`)
@@ -36,7 +42,35 @@ exports.default = async function afterPack(context) {
     log(`locales: removed ${removed} files, saved ${(saved / 1024 / 1024).toFixed(1)} MB`)
   }
 
-  // --- 2. Drop node-llama-cpp source-build bundle --------------------------
+  // --- 2. Drop unused ggml-cpu ISA variants --------------------------------
+  const binsRoot = path.join(appOutDir, 'resources', 'app.asar.unpacked', 'node_modules', '@node-llama-cpp')
+  if (fs.existsSync(binsRoot)) {
+    for (const pkg of fs.readdirSync(binsRoot)) {
+      if (!pkg.startsWith('win-x64')) continue // cpu + vulkan prebuilds
+      const binsDir = path.join(binsRoot, pkg, 'bins')
+      if (!fs.existsSync(binsDir)) continue
+      for (const arch of fs.readdirSync(binsDir)) {
+        const dir = path.join(binsDir, arch)
+        let removed = 0
+        let saved = 0
+        for (const file of fs.readdirSync(dir)) {
+          const m = /^ggml-cpu-(.+)\.dll$/.exec(file)
+          if (!m || KEEP_CPU_ISA.has(m[1])) continue
+          try {
+            const p = path.join(dir, file)
+            saved += fs.statSync(p).size
+            fs.unlinkSync(p)
+            removed++
+          } catch (e) {
+            log(`could not remove ${file}: ${e.message}`)
+          }
+        }
+        if (removed > 0) log(`${pkg}: dropped ${removed} ggml-cpu ISA variants, saved ${(saved / 1024 / 1024).toFixed(1)} MB`)
+      }
+    }
+  }
+
+  // --- 3. Drop node-llama-cpp source-build bundle --------------------------
   const bundlePath = path.join(
     appOutDir,
     'resources',

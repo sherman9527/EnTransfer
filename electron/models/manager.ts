@@ -5,7 +5,7 @@ import { existsSync, rmSync } from 'node:fs'
 import type { ModelInfo, ModelStatus } from '../../shared/types'
 import { getModelInfo, getModelPath, getModels, DEFAULT_MODEL_ID } from './registry.ts'
 import { downloadModel, applyMirror, type DownloadProgress } from './download.ts'
-import { TranslationEngine } from './engine.ts'
+import type { TranslationEngine } from './engine-interface.ts'
 import { EngineManager, type InferenceSettings } from './engine-manager.ts'
 
 interface DownloadTask {
@@ -204,6 +204,11 @@ export class ModelManager {
   async dispose(): Promise<void> {
     for (const task of this.downloads.values()) task.controller.abort()
     await this.engineManager.unload()
+  }
+
+  /** Surface engine-level notices (GPU failover…) to the UI. */
+  setOnNotice(cb: (message: string) => void): void {
+    this.engineManager.onNotice = cb
   }
 
   // -- Internals ------------------------------------------------------------

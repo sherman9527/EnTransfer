@@ -5,7 +5,6 @@
 //   - detectGpu(): probe whether a Vulkan GPU is available
 //   - resolveGpuLayers(): translate the user's device preference into a
 //     gpuLayers value suitable for llama.loadModel()
-//   - estimateVramNeeded(): rough VRAM budget for model + KV cache
 //
 // Design decisions:
 //   - Vulkan-only: works on NVIDIA, AMD, Intel iGPUs. No CUDA toolkit needed.
@@ -96,34 +95,4 @@ export function resolveGpuLayers(
   }
   // 'auto'
   return gpu?.type === 'vulkan' ? 'max' : 0
-}
-
-/**
- * Estimate VRAM required for loading a model + context on the GPU.
- *
- * Formula:
- *   modelSizeMB          — the GGUF file size (approximately the weights)
- *   KV cache             — contextSize * 0.2 MB (rough estimate for Q4
- *                          models with a single sequence)
- *   overhead             — 500 MB for compute buffers, allocator overhead,
- *                          and graph memory
- *
- * This is intentionally conservative; llama.cpp's own memory planner will
- * do a more precise job when gpuLayers is "max".
- */
-export function estimateVramNeeded(modelSizeMB: number, contextSize: number): number {
-  const kvCacheMB = contextSize * 0.2
-  const overheadMB = 500
-  return Math.ceil(modelSizeMB + kvCacheMB + overheadMB)
-}
-
-/**
- * Format a human-readable GPU status string for UI display.
- * Returns null when no GPU is available.
- */
-export function formatGpuStatus(gpu: GpuInfo | null): string | null {
-  if (!gpu || gpu.type === null) return null
-  const name = gpu.name ?? 'Unknown GPU'
-  const vram = gpu.vramMB ? ` (${gpu.vramMB} MB)` : ''
-  return `GPU加速已启用（Vulkan）— ${name}${vram}`
 }

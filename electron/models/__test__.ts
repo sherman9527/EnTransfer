@@ -8,7 +8,7 @@
 // new sampling params), and 3 technical passages translated back-to-back.
 // Per-segment timing is printed so we can compare against the baseline.
 import { getModels, getModelPath, getModelsDir } from './registry.ts'
-import { TranslationEngine } from './engine.ts'
+import { LlamaCppEngine as TranslationEngine } from './llama-engine.ts'
 
 const PASSAGES = [
   // Short

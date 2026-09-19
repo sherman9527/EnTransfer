@@ -1,19 +1,17 @@
 /**
- * electron/pdf/typeset/measure.ts — mixed CJK/Latin measurement, deterministic
- * line wrapping and adaptive font fitting.
+ * electron/pdf/typeset/measure.ts — mixed CJK/Latin measurement and
+ * deterministic line wrapping for the pdf-lib fallback composer.
  *
  * A translated line mixes Chinese, Latin words and URLs: Chinese breaks
  * per-character, Latin breaks on spaces, and a URL never breaks mid-token. Each
  * script is drawn with its OWN embedded font, so measurement is per-run. The wrap
  * is deterministic (same input ⇒ same lines).
  *
- * Font fitting shrinks the size until the text fits the unit's bbox, but never
- * below the readable floor: text that still overflows at the floor is drawn AT
- * the floor and flagged overflow — never microscopic.
+ * (Adaptive bbox font-fitting was removed with the legacy same-page path; the
+ * Chromium composer owns pagination now.)
  */
 
 import type { PDFFont } from 'pdf-lib'
-import type { BBox } from '../types'
 
 /** The reusable embedded-font pair for one document (cjk + latin). */
 export interface EmbeddedFonts {
@@ -38,18 +36,6 @@ export interface LineRun {
 export interface LaidOutLine {
   runs: LineRun[]
   width: number
-}
-
-/** The result of fitting text into a bbox. */
-export interface FitResult {
-  /** The fitted font size (never below the floor). */
-  size: number
-  /** The wrapped lines at that size. */
-  lines: LaidOutLine[]
-  /** Line height in points at the fitted size. */
-  lineHeight: number
-  /** True when text still overflowed the bbox at the floor. */
-  overflow: boolean
 }
 
 /** Classify a character to the script it must be drawn with. */
@@ -192,54 +178,4 @@ export function wrapMixed(
     if (cur.length > 0) flushLine()
   }
   return lines
-}
-
-function widestAtom(text: string, fonts: EmbeddedFonts, size: number): number {
-  let max = 0
-  for (const para of String(text ?? '').split('\n')) {
-    for (const atom of atomize(para)) max = Math.max(max, atomWidth(atom, fonts, size))
-  }
-  return max
-}
-
-/** Options for {@link fitTextToBox}. */
-export interface FitOptions {
-  /** Never draw smaller than this (pt). */
-  floor: number
-  /** Try sizes from here down. */
-  start: number
-  /** Line height as a multiple of font size (e.g. 1.2). */
-  lineHeight: number
-}
-
-/**
- * Fit `text` into `box` [x0,y0,x1,y1] (points): find the largest size in
- * `[floor, start]` whose wrapped lines fit the box height AND whose widest atom
- * fits the box width. If nothing fits down to the floor, return the floor layout
- * with `overflow: true` (drawn readable, flagged) — never sub-floor.
- */
-export function fitTextToBox(
-  text: string,
-  fonts: EmbeddedFonts,
-  box: BBox,
-  opts: FitOptions
-): FitResult {
-  const width = Math.abs(box[2] - box[0])
-  const height = Math.abs(box[3] - box[1])
-  const { floor, start, lineHeight } = opts
-
-  const fits = (size: number): { ok: boolean; lines: LaidOutLine[] } => {
-    const lines = wrapMixed(text, fonts, size, width)
-    const totalH = lines.length * size * lineHeight
-    const widthOk = widestAtom(text, fonts, size) <= width + 0.5
-    return { ok: totalH <= height + 0.5 && widthOk, lines }
-  }
-
-  let size = Math.max(floor, Math.floor(start))
-  for (; size >= floor; size--) {
-    const r = fits(size)
-    if (r.ok) return { size, lines: r.lines, lineHeight: size * lineHeight, overflow: false }
-  }
-  const atFloor = wrapMixed(text, fonts, floor, width)
-  return { size: floor, lines: atFloor, lineHeight: floor * lineHeight, overflow: true }
 }
