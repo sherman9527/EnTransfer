@@ -159,6 +159,10 @@ const CODE_SYMBOL_RE = /[{};=[\]<>|+%#]|=>|::|\/\/|->|--/g
 // them by explicit markers + a smaller-than-body font signal.
 const MAGIC_CELL_RE = /^\s*%\s*(sql|python|pyspark|scala|r|md|sh|bash|run)\b/i
 const ASCII_DUMP_RE = /^\s*[+][-+=|]{3,}|^\s*[|][-+=| ]{3,}\s*[|]/ // +----+ or |----|
+// REPL prompts (scala> / python> / spark> / >) and bare filesystem paths are
+// console output — common in this code-heavy book but lacking code symbols.
+const REPL_PROMPT_RE = /^\s*(scala|python|py|spark|sql|jupyter|in|out)\s*(\[\d*\])?\s*>/i
+const PATH_LINE_RE = /^\s*[~.]?\/[\w./@+-]{4,}\s*$/ // a lone /dbfs/... path
 const SQL_CODE_RE = /\b(SELECT|FROM|WHERE|INSERT|INTO|CREATE|DROP|ALTER|MERGE|UPDATE|DELETE|GROUP BY|ORDER BY)\b/i
 const PY_CODE_RE = /^\s*(import |from \S+ import|def \w+\(|print\(|return |class \w+)/
 /** Font size at/below this fraction of body size is a code candidate. */
@@ -272,12 +276,17 @@ function nearestAnchor(x: number, anchors: number[], tol: number): number {
  * body line spacing (~1.5x font). Continuation lines that touch only some
  * columns are folded into the current row's cells.
  */
-function detectTables(lines: RawLine[]): { tables: DetectedTable[]; skip: Set<RawLine> } {
+function detectTables(lines: RawLine[], codeFonts: Set<string>): { tables: DetectedTable[]; skip: Set<RawLine> } {
   const tables: DetectedTable[] = []
   const skip = new Set<RawLine>()
 
   const byPage = new Map<number, RawLine[]>()
   for (const l of lines) {
+    // Real typeset tables use the body/table font. Console/JSON dumps use the
+    // CODE font (the same font the %sql/%sh/+---+ lines use) — exclude only that
+    // exact font, so a JSON blob isn't mistaken for a table (E2E Image 4) while
+    // smaller-but-real table-cell fonts (Manning) are preserved.
+    if (l.fontName && codeFonts.has(l.fontName)) continue
     if (!byPage.has(l.page)) byPage.set(l.page, [])
     byPage.get(l.page)!.push(l)
   }
@@ -410,7 +419,7 @@ function detectTables(lines: RawLine[]): { tables: DetectedTable[]; skip: Set<Ra
   return { tables, skip }
 }
 
-function mergeLinesToParas(lines: RawLine[]): Para[] {
+function mergeLinesToParas(lines: RawLine[], bodySize: number): Para[] {
   const paras: Para[] = []
   let cur: {
     texts: string[]
@@ -455,6 +464,11 @@ function mergeLinesToParas(lines: RawLine[]): Para[] {
     const gap = prevBaseline - line.y
     const lineH = cur.fontSize
     const fontRatio = Math.min(line.fontSize, cur.fontSize) / Math.max(line.fontSize, cur.fontSize)
+    // Code is LINE-oriented: never merge a smaller-than-body (code-font) line
+    // with its neighbours — each code line stays its own paragraph so the code
+    // block preserves its newlines (bug: console dumps collapsed to one line).
+    const codeFont = (fs: number): boolean => bodySize > 0 && fs <= bodySize * CODE_FONT_RATIO
+    const codeLine = codeFont(line.fontSize) || codeFont(cur.fontSize)
     // Never merge across a page boundary (the y coordinate resets, which would
     // otherwise produce a huge negative gap and glue pages together), nor across
     // a column boundary (left column ends, right column begins).
@@ -470,7 +484,7 @@ function mergeLinesToParas(lines: RawLine[]): Para[] {
     // pattern at the beginning of a line always forces a break, even if the
     // line continues into body text (PDF text extraction may join them).
     const startsHeading = SECTION_NUM_HEADING_RE.test(lineText.trim())
-    if (sameFlow && !startsListItem && !startsHeading && gap <= lineH * LINE_GAP_RATIO && fontRatio > 1 - FONT_TOLERANCE) {
+    if (sameFlow && !codeLine && !startsListItem && !startsHeading && gap <= lineH * LINE_GAP_RATIO && fontRatio > 1 - FONT_TOLERANCE) {
       cur.texts.push(lineText)
       cur.fontSize = (cur.fontSize + line.fontSize) / 2
     } else {
@@ -569,9 +583,9 @@ function isTocPage(lines: RawLine[]): boolean {
  * Estimate the body font size: the mode of font sizes weighted by text length.
  * This makes heading thresholds adaptive across books with different base sizes.
  */
-function estimateBodySize(paras: Para[]): number {
+function estimateBodySize(items: Array<{ text: string; fontSize: number }>): number {
   const sizeBuckets = new Map<number, number>()
-  for (const p of paras) {
+  for (const p of items) {
     const bucket = Math.round(p.fontSize)
     sizeBuckets.set(bucket, (sizeBuckets.get(bucket) ?? 0) + p.text.length)
   }
@@ -630,7 +644,8 @@ function classifyPara(p: Para, bodySize: number): ParaKind {
   const symCount = (text.match(CODE_SYMBOL_RE) || []).length
   const isDenseCode = text.length > 30 && symCount >= 3 && symCount > text.length / 12
   const isCodeLang = smallFont && (SQL_CODE_RE.test(text) || PY_CODE_RE.test(text) || symCount >= 2)
-  if (isMono || isDenseCode || MAGIC_CELL_RE.test(text) || ASCII_DUMP_RE.test(text) || isCodeLang) return 'code'
+  if (isMono || isDenseCode || MAGIC_CELL_RE.test(text) || ASCII_DUMP_RE.test(text) ||
+      REPL_PROMPT_RE.test(text) || PATH_LINE_RE.test(text) || isCodeLang) return 'code'
 
   // List item?
   if (LIST_NUMBERED_RE.test(text) || LIST_BULLET_RE.test(text)) return 'list-item'
@@ -1274,7 +1289,16 @@ export async function captureFlow(
   // Detect tables on the FULL line set (a figure region must not starve table
   // detection of its grid lines), THEN drop leaked labels from prose only.
   const bodyLines = dropRepeatedEdgeText(allLines, max)
-  const { tables, skip: tableLines } = detectTables(bodyLines)
+  // Fonts used by DEFINITIVE code markers (%sql, +---+ dumps, REPL prompts).
+  // Excluding exactly these from table detection catches JSON/console dumps
+  // (E2E Image 4) without harming real table-cell fonts (Manning control).
+  const codeFonts = new Set<string>()
+  for (const l of bodyLines) {
+    if (MAGIC_CELL_RE.test(l.text) || ASCII_DUMP_RE.test(l.text) || REPL_PROMPT_RE.test(l.text)) {
+      if (l.fontName) codeFonts.add(l.fontName)
+    }
+  }
+  const { tables, skip: tableLines } = detectTables(bodyLines, codeFonts)
   console.log(`[capture/flow] detected ${tables.length} tables`)
   const proseLines = bodyLines.filter((l) => !tableLines.has(l) && !lineInRegion(l, regionsByPage))
   const tableEntries = tables.map((t) => ({
@@ -1291,11 +1315,13 @@ export async function captureFlow(
     topY: t.startTopY
   }))
 
-  // Step 4: merge lines 鈫?paragraphs.
-  const paras = mergeLinesToParas(proseLines)
+  // Step 4: merge lines → paragraphs. Body size estimated from the LINES so the
+  // merge keeps code-font (smaller) lines as separate paragraphs, preserving
+  // code/console block line structure (E2E Image 3: console wall).
+  const bodySize = estimateBodySize(proseLines)
+  const paras = mergeLinesToParas(proseLines, bodySize)
 
-  // Step 5: adaptive body size + classify.
-  const bodySize = estimateBodySize(paras)
+  // Step 5: classify.
 
   // Step 6: build ContentBlock stream, grouping consecutive list-items and code.
   // Track the y-position of each block for image interleaving.
