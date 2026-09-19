@@ -139,6 +139,7 @@ function registerIpc(): void {
     if (patch.defaultModel && modelManager) {
       try {
         modelManager.setDefault(patch.defaultModel)
+        jobManager?.setDefaultModel(patch.defaultModel) // stamp it on future jobs (#16)
       } catch {
         // Unknown id — leave the current default untouched.
       }

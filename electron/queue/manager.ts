@@ -64,7 +64,7 @@ const clamp100 = (n: number): number => Math.max(0, Math.min(100, Number.isFinit
 export class JobManager {
   private readonly jobsDir: string
   private outputDir: string
-  private readonly model: string
+  private model: string
   private readonly onEvent?: (job: TranslationJob) => void
   private readonly opener?: (dir: string) => unknown | Promise<unknown>
 
@@ -96,6 +96,11 @@ export class JobManager {
   /** Redirect where FUTURE jobs write their output PDF (settings change). */
   setOutputDir(dir: string): void {
     this.outputDir = dir
+  }
+
+  /** Update the model stamped on FUTURE jobs when the default changes (#16). */
+  setDefaultModel(model: string): void {
+    this.model = model
   }
 
   // ------------------------------------------------------------------ catalog
