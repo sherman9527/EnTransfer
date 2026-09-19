@@ -54,7 +54,16 @@ const CASES: Case[] = [
 ]
 
 async function main() {
-  const engine = new LlamaCppEngine({ systemPrompt: GENERIC_SYSTEM_PROMPT, disableReasoning: true })
+  const FEWSHOT = [
+    'Translate the following English text to Simplified Chinese. Output only the translation, no explanation.',
+    'In technical and management contexts: team=团队 (not 球队), manager=经理/管理者 (not 教练), ship=交付, release=发布.',
+    'Example:',
+    'EN: The engineering manager leads her team to ship reliable software and owns the on-call rotation.',
+    'ZH: 工程经理带领她的团队交付可靠的软件，并负责值班轮转。',
+    'EN: Nothing stopped the deployment from failing silently.',
+    'ZH: 没有什么能阻止这次部署悄然失败。'
+  ].join('\n')
+  const engine = new LlamaCppEngine({ systemPrompt: process.env.QC_SYSTEM === 'fewshot' ? FEWSHOT : GENERIC_SYSTEM_PROMPT, disableReasoning: true })
   await engine.load(MODEL, { device: 'gpu', threads: 12, contextSize: 4096 })
   const results: Array<{ id: string; cat: string; pass: boolean; failed: string[]; valReasons: string[] }> = []
   const texts: string[] = []
