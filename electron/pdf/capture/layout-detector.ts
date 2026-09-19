@@ -42,13 +42,22 @@ const STD = [0.229, 0.224, 0.225]
 const DET_SIZE = 480
 const SCORE_THRESHOLD = 0.3
 
-/** Locate the bundled model across dev and packaged (asar) builds. */
+/** Locate the bundled model across dev, packaged (asar), and harness contexts. */
 export function resolveModelPath(): string {
-  const appRoot = (process.versions as { electron?: string }).electron
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    ? (require('electron').app.getAppPath())
-    : process.cwd()
-  return path.join(appRoot, 'assets', 'layout', 'pp_doclayout_s.onnx')
+  const rel = path.join('assets', 'layout', 'pp_doclayout_s.onnx')
+  const roots: string[] = []
+  if ((process.versions as { electron?: string }).electron) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      roots.push((require('electron').app.getAppPath()))
+    } catch { /* ignore */ }
+  }
+  roots.push(process.cwd())
+  for (const r of roots) {
+    const p = path.join(r, rel)
+    if (existsSync(p)) return p
+  }
+  return path.join(roots[0] ?? process.cwd(), rel)
 }
 
 type OrtSession = {
