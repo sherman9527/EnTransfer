@@ -89,38 +89,4 @@ exports.default = async function afterPack(context) {
       log(`could not remove gitRelease.bundle: ${e.message}`)
     }
   }
-
-  // --- 4. Drop onnxruntime-node GPU EPs (CPU-only detector ships) -----------
-  // The layout detector runs on the CPU EP; DirectML/dxcompiler/dxil (~36 MB)
-  // are GPU execution providers we never load. onnxruntime.dll + binding.node
-  // are the only win32/x64 files needed.
-  const ortWin = path.join(
-    appOutDir,
-    'resources',
-    'app.asar.unpacked',
-    'node_modules',
-    'onnxruntime-node',
-    'bin',
-    'napi-v6',
-    'win32',
-    'x64'
-  )
-  const ORT_GPU_DROP = ['DirectML.dll', 'dxcompiler.dll', 'dxil.dll']
-  if (fs.existsSync(ortWin)) {
-    let saved = 0
-    let removed = 0
-    for (const f of ORT_GPU_DROP) {
-      const p = path.join(ortWin, f)
-      if (fs.existsSync(p)) {
-        try {
-          saved += fs.statSync(p).size
-          fs.unlinkSync(p)
-          removed++
-        } catch (e) {
-          log(`could not remove ${f}: ${e.message}`)
-        }
-      }
-    }
-    if (removed) log(`onnxruntime-node: dropped ${removed} GPU dlls, saved ${(saved / 1024 / 1024).toFixed(1)} MB`)
-  }
 }

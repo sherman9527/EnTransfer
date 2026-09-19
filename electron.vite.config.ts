@@ -30,9 +30,7 @@ export default defineConfig({
           /^node:/,
           'electron',
           'node-llama-cpp',
-          /^@node-llama-cpp\//,
-          'onnxruntime-node',
-          '@napi-rs/canvas'
+          /^@node-llama-cpp\//
         ],
         output: {
           entryFileNames: 'index.js'
