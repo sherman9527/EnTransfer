@@ -115,3 +115,4 @@ assets/fonts/Consolas*.ttf
 poc/speed-v3/pylib/
 poc/speed-v3/node_modules/
 .qoder/
+poc/doclayout-poc/*.png
