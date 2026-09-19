@@ -184,4 +184,4 @@ npx esbuild poc/speed-v3/table-poc.ts --bundle --platform=node --format=cjs --ou
 EN_DEVICE=gpu node .scratch/e2e-test.cjs 25                 # 全管线 E2E
 ```
 产品级修复涉及文件：`electron/models/{llama-engine,registry,engine-config,download}.ts`、`electron/pipeline.ts`（编号批次）、`electron/pdf/capture/flow.ts` + `electron/pdf/typeset/flow.ts`（表格列宽/分页/表头）。typecheck+build+verify+E2E(30页) 全绿；353 页全书回归进行中。
-其他 POC：`batch-strategy.ts`（批次格式 A/B）、`debug-batch.ts`（失败样本插桩）、`score-outputs.ts`（未译率/英文残留自动质检）、`loadtest.mjs`（poc/speed-v3 内隔离 node-llama-cpp@3.21.1 探测，结论：新版也加载不了 Hy-MT2）。
+其他 POC：`batch-strategy.ts`（批次格式 A/B）、`score-outputs.ts`（未译率/英文残留自动质检）、`loadtest.mjs`（poc/speed-v3 内隔离 node-llama-cpp@3.21.1 探测，结论：新版也加载不了 Hy-MT2）。
