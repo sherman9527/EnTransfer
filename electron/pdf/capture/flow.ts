@@ -1130,8 +1130,12 @@ async function emitRegionImages(inputPath: string, regions: FigureRegion[]): Pro
   for (const r of regions) {
     let pageHpt = pageHptCache.get(r.page)
     if (pageHpt === undefined) {
-      const probe = await renderForDetect(inputPath, r.page, 1)
-      pageHpt = probe ? probe.renderH / probe.scale : 792
+      try {
+        const probe = await renderForDetect(inputPath, r.page, 1)
+        pageHpt = probe ? probe.renderH / probe.scale : 792
+      } catch {
+        pageHpt = 792 // a page that won't render must not crash the whole job
+      }
       pageHptCache.set(r.page, pageHpt)
     }
     const clipBox = {
@@ -1182,8 +1186,12 @@ async function rasterizePlacements(
     if (pl.displayW < 40 || pl.displayH < 40) continue // skip tiny decorations/rules
     let pageHpt = pageHptCache.get(pl.page)
     if (pageHpt === undefined) {
-      const probe = await renderForDetect(inputPath, pl.page, 1)
-      pageHpt = probe ? probe.renderH : 792
+      try {
+        const probe = await renderForDetect(inputPath, pl.page, 1)
+        pageHpt = probe ? probe.renderH : 792
+      } catch {
+        pageHpt = 792 // a page that won't render must not crash the whole job
+      }
       pageHptCache.set(pl.page, pageHpt)
     }
     const yTop = pl.yBot + pl.displayH

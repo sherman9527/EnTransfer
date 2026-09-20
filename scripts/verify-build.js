@@ -192,6 +192,7 @@ check('没有静态 require/import node-llama-cpp', !staticLlamaImport, '发现�
   check('JPX/未提取图片走 renderClip 栅格化', cap.includes('rasterizePlacements(') && cap.includes('matchedSet.has(p)'), 'JPEG2000 图片会被静默丢弃（缺图回归）')
   const pageRenderer = readText('electron/pdf/capture/page-renderer.ts')
   check('pdf.js 运行时 canvas 解析钩子', pageRenderer.includes('_resolveFilename') && pageRenderer.includes("'canvas' ? '@napi-rs/canvas'"), 'pdf.js 经运行时 require() 加载，build 期 canvas 别名对其内部 require(canvas) 无效 → 含图页栅格化崩 Cannot find module canvas')
+  check('渲染跳过退化页(0 尺寸视口)', pageRenderer.includes('renderW < 1 || renderH < 1'), '0×N 画布 drawImage 会抛 Read pixels from canvas failed，整本书任务崩')
   // Scanned-PDF upload gate must be wired end-to-end (probe -> IPC -> renderer).
   const preload = readText('electron/preload.ts')
   const mainTs = readText('electron/main.ts')

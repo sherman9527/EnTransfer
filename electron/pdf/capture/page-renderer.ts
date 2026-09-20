@@ -125,6 +125,9 @@ export async function renderForDetect(pdfPath: string, pageNumber: number, scale
     const vp = page.getViewport({ scale })
     const renderW = Math.ceil(vp.width)
     const renderH = Math.ceil(vp.height)
+    // Degenerate/blank page (0-size viewport): drawing FROM a 0×N canvas makes
+    // @napi-rs/canvas throw "Read pixels from canvas failed". Skip instead.
+    if (renderW < 1 || renderH < 1) return null
     full = createCanvas!(renderW, renderH)
     await page.render({ canvasContext: (full as any).getContext('2d'), viewport: vp }).promise
     small = createCanvas!(480, 480)
@@ -158,6 +161,7 @@ export async function renderClip(pdfPath: string, pageNumber: number, box: ClipB
     const vp = page.getViewport({ scale })
     const renderW = Math.ceil(vp.width)
     const renderH = Math.ceil(vp.height)
+    if (renderW < 1 || renderH < 1) return null // degenerate page (see renderForDetect)
     full = createCanvas!(renderW, renderH)
     await page.render({ canvasContext: (full as any).getContext('2d'), viewport: vp }).promise
     const x0 = Math.max(0, Math.round(box.x0))
