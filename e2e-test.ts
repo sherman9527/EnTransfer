@@ -4,7 +4,7 @@
  */
 import path from 'node:path'
 import fs from 'node:fs'
-import { TranslationEngine, GENERIC_SYSTEM_PROMPT } from './electron/models/engine'
+import { LlamaCppEngine, GENERIC_SYSTEM_PROMPT } from './electron/models/llama-engine'
 import { createPipeline } from './electron/pipeline'
 import type { TranslationJob } from './shared/types'
 
@@ -42,7 +42,7 @@ async function main() {
   console.log('[1/4] Loading Qwen3-1.7B model (thinking off)...')
   console.log(`      device=${device}`)
   const t0 = Date.now()
-  const engine = new TranslationEngine({
+  const engine = new LlamaCppEngine({
     systemPrompt: GENERIC_SYSTEM_PROMPT,
     disableReasoning: true
   })
@@ -138,7 +138,7 @@ async function main() {
     console.log('      Verification skipped:', (e as Error).message)
   }
 
-  engine.dispose()
+  await engine.dispose()
   console.log('')
   console.log('=== E2E Test Complete ===')
   console.log('Output:', OUTPUT)

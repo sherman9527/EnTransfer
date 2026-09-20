@@ -45,11 +45,6 @@ export function isResumableStatus(status: JobStatus): boolean {
   return (RESUMABLE_STATUSES as readonly string[]).includes(status)
 }
 
-/** Whether `status` is fully terminal (delete only). */
-export function isTerminalStatus(status: JobStatus): boolean {
-  return (TERMINAL_STATUSES as readonly string[]).includes(status)
-}
-
 /**
  * The legal transition table. Each key lists the statuses it may move to. Anything
  * not listed is rejected. A same-status "transition" (from === to) is a no-op and

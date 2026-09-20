@@ -23,7 +23,6 @@ import { CheckpointStore } from './checkpoint.ts'
 import {
   assertTransition,
   canCancel,
-  canDelete,
   canPause,
   canResume,
   isActiveStatus
@@ -386,5 +385,3 @@ export class JobManager {
   }
 }
 
-// Re-export the small guards the IPC layer finds handy.
-export { canPause, canResume, canCancel, canDelete, isActiveStatus }

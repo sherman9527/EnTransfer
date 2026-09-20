@@ -50,13 +50,6 @@ export interface TranslateResult {
   firstTokenMs?: number
 }
 
-/** Fixed sampling defaults shared across engines. */
-export interface SamplingDefaults {
-  temperature: number
-  topK: number
-  topP: number
-}
-
 /**
  * Capability surface a translation engine must expose. The concrete
  * constructor may still accept backend-specific options, but the runtime only

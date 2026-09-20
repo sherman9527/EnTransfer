@@ -44,10 +44,6 @@ export class ModelManager {
     })
   }
 
-  getDefaultModelId(): string {
-    return this.defaultModelId
-  }
-
   // -- Downloads ------------------------------------------------------------
 
   /**
