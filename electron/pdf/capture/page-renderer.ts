@@ -10,6 +10,7 @@
 // Degrades to unavailable (returns null) if the native canvas isn't present, so
 // capture keeps working without the detector.
 import { existsSync, readFileSync } from 'node:fs'
+import Module from 'node:module'
 import path from 'node:path'
 
 export interface DetectBuffer {
@@ -43,6 +44,29 @@ let createCanvas: ((w: number, h: number) => any) | null | undefined
 let workerConfigured = false
 const docCache = new Map<string, PdfDoc>()
 
+// pdf.js is require()'d at runtime (a bare CJS require of a package specifier
+// isn't rewritten into the bundle), so electron.vite's build-time `canvas` ->
+// canvas-stub alias (see electron.vite.config.ts) NEVER applies to the require
+// INSIDE pdf.js itself. For scratch/pattern/mask canvases NodeCanvasFactory
+// does a literal require('canvas') — the node-canvas package we don't ship (we
+// ship @napi-rs/canvas, same createCanvas(w,h) API). So the stub is bypassed
+// and image-heavy pages (rasterized JPX figures) crash in the packed asar.
+// Redirect that one specifier to @napi-rs/canvas at resolution time. Bare
+// specifiers only — no filesystem paths. Idempotent, installed at module load.
+let canvasAliasInstalled = false
+function installCanvasAlias(): void {
+  if (canvasAliasInstalled) return
+  const mod = Module as unknown as {
+    _resolveFilename: (request: string, ...rest: unknown[]) => unknown
+  }
+  const orig = mod._resolveFilename
+  mod._resolveFilename = function (request: string, ...rest: unknown[]): unknown {
+    return orig.call(this, request === 'canvas' ? '@napi-rs/canvas' : request, ...rest)
+  }
+  canvasAliasInstalled = true
+}
+installCanvasAlias()
+
 /** Load pdf.js + @napi-rs/canvas lazily; returns false if unavailable. */
 function backend(): boolean {
   if (pdfjs !== undefined && createCanvas !== undefined) return !!pdfjs && !!createCanvas
@@ -71,8 +95,10 @@ function configureWorker() {
 
 /**
  * pdf.js allocates SCRATCH canvases (patterns, soft masks, form XObjects) via
- * `require('canvas')` in Node; electron.vite aliases `canvas` -> @napi-rs/canvas
- * (see canvas-stub.js) so those pages render. No per-render canvasFactory needed.
+ * a literal require('canvas') at render time. Because pdf.js is loaded through
+ * a runtime require (not bundled), the build-time alias can't reach it — so we
+ * hook Module._resolveFilename (installCanvasAlias) to map 'canvas' ->
+ * @napi-rs/canvas. No per-render canvasFactory needed.
  */
 async function getDoc(pdfPath: string): Promise<PdfDoc | null> {
   if (!backend()) return null

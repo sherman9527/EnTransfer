@@ -190,6 +190,8 @@ check('没有静态 require/import node-llama-cpp', !staticLlamaImport, '发现�
   const pipeSrc = readText('electron/pipeline.ts')
   check('writeBack 剥离"译文："回显', pipeSrc.includes('cleanTranslation('), '模型回显的"译文："标签会漏进正文')
   check('JPX/未提取图片走 renderClip 栅格化', cap.includes('rasterizePlacements(') && cap.includes('matchedSet.has(p)'), 'JPEG2000 图片会被静默丢弃（缺图回归）')
+  const pageRenderer = readText('electron/pdf/capture/page-renderer.ts')
+  check('pdf.js 运行时 canvas 解析钩子', pageRenderer.includes('_resolveFilename') && pageRenderer.includes("'canvas' ? '@napi-rs/canvas'"), 'pdf.js 经运行时 require() 加载，build 期 canvas 别名对其内部 require(canvas) 无效 → 含图页栅格化崩 Cannot find module canvas')
 }
 
 // ── 4. 资源文件检查 ───────────────────────────────────
