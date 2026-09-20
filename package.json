@@ -96,6 +96,7 @@
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true,
             "shortcutName": "译事郎",
+            "uninstallDisplayName": "译事郎",
             "installerIcon": "build/icon.ico",
             "uninstallerIcon": "build/icon.ico",
             "deleteAppDataOnUninstall": true,
