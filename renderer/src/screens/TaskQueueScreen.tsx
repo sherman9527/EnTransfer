@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import { appApi } from '../ipc/client'
 import { STATUS_META, useQueueStore } from '../store/queueStore'
+import { useModelStore } from '../store/modelStore'
+import { useUiStore } from '../store/uiStore'
 import type { JobStatus, TranslationJob } from '../../../shared/types'
 
 const ACTIVE_STATUSES: ReadonlySet<JobStatus> = new Set([
@@ -59,7 +61,20 @@ export function TaskQueueScreen() {
     void fetchJobs()
   }, [fetchJobs])
 
+  // Translation can't run without a downloaded, ready model. If none is
+  // available, bounce the user to the models page (with an explanation) instead
+  // of letting them pick a PDF that would only fail in the queue.
+  function ensureModelReady(): boolean {
+    const ready = useModelStore.getState().models.some((m) => m.status === 'available')
+    if (ready) return true
+    const { setScreen, showToast } = useUiStore.getState()
+    showToast('还没有下载好可用的翻译模型，已跳转到模型页，请先下载并设为默认')
+    setScreen('models')
+    return false
+  }
+
   async function handleAddPdf() {
+    if (!ensureModelReady()) return
     const path = await appApi.openPdfDialog()
     if (path) void addJob(path)
   }
@@ -71,7 +86,7 @@ export function TaskQueueScreen() {
     const file = e.dataTransfer.files?.[0] as (File & { path?: string }) | undefined
     const p = file?.path
     if (p && /\.pdf$/i.test(p)) {
-      void addJob(p)
+      if (ensureModelReady()) void addJob(p)
     } else if (p) {
       setDropHint(`仅支持 PDF 文件，已忽略「${basename(p)}」`)
       window.setTimeout(() => setDropHint(''), 4000)
