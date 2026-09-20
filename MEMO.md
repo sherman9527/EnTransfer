@@ -232,3 +232,4 @@ llama-engine.ts(TDZ/gpuLayers判断/spec开关/分句阈值/maxTokens钳制) reg
 - **E2E 关键修复（用户实测 Delta Lake 截图）**：代码块用不透明子集字体 g_d0_f1，MONO_FONT_RE 认不出 → 新增 magic-cell(%sql/%sh)/ASCII-dump(+---+)/REPL提示(scala>)/路径/小字号+关键字 判代码；**代码行不再合并**（保 newline，修控制台墙）；**detectTables 按字体名排除代码字体**（JSON/控制台dump→代码，真表格字体保留）。验证：Delta 代码块 512(208多行)、表格→2；Manning 真表格仍 9（对照无误伤）。
 - **LoRA 管线脚手架**：harvest-segments(CJK/页眉/水印过滤)、align_embed(LaBSE/MiniLM 单调对齐)、train_lora(QLoRA)、eval_gate。结论：自动对齐精度上限~50%（2.5:1粒度错配），数据是瓶颈非管线。
 - 交付：gate 全绿、verify 43/43 → 重打 译事郎 Setup 0.1.0.exe。push 待网络（本地多个 commit 排队）。
+- **缺图根因 + 修复**：Delta Lake 前100页 15/16 图是 JPXDecode(JPEG2000)，extractImagesFromPage 只支持 DCT/Flate → 静默丢弃。新增 rasterizePlacements：对无法字节提取的图片 placement，用 pdfjs renderClip 栅格化其区域（pdfjs 能解码 JPX）。验证：100页 imageBlocks 从 ~1 → 47（38 栅格化 + 9 C1）。加 verify 守卫防回归。

@@ -189,6 +189,7 @@ check('没有静态 require/import node-llama-cpp', !staticLlamaImport, '发现�
   check('代码行各自成段（保留换行）', cap.includes('codeLine'), '控制台块丢换行 → 挤成一坨回归')
   const pipeSrc = readText('electron/pipeline.ts')
   check('writeBack 剥离"译文："回显', pipeSrc.includes('cleanTranslation('), '模型回显的"译文："标签会漏进正文')
+  check('JPX/未提取图片走 renderClip 栅格化', cap.includes('rasterizePlacements(') && cap.includes('matchedSet.has(p)'), 'JPEG2000 图片会被静默丢弃（缺图回归）')
 }
 
 // ── 4. 资源文件检查 ───────────────────────────────────

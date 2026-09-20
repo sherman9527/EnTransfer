@@ -661,6 +661,10 @@ interface ImagePlacement {
   page: number
   /** Center-y in PDF coordinates (bottom-up origin). */
   centerY: number
+  /** Left x in points (bottom-up origin) — used to rasterize un-extractable images. */
+  x: number
+  /** Bottom y in points (bottom-up origin). */
+  yBot: number
   /** Display width in points. */
   displayW: number
   /** Display height in points. */
@@ -910,6 +914,8 @@ function trackImagePlacements(
         placements.push({
           page: pageNumber,
           centerY,
+          x: ctm[4],
+          yBot: y,
           displayW,
           displayH,
           pixelW,
@@ -1158,6 +1164,59 @@ async function emitRegionImages(inputPath: string, regions: FigureRegion[]): Pro
 }
 
 /**
+ * Rasterize image placements we could NOT byte-extract — chiefly JPXDecode
+ * (JPEG2000), which pdf-lib can't decode but pdfjs CAN render. Many O'Reilly
+ * books store ALL their figures as JPX (Delta Lake: 15/16 in the first 100 pp),
+ * so without this they vanish from the output. Renders each placement's page
+ * region to PNG at 2x. Returns entries + their placement (for C1 dedup).
+ */
+async function rasterizePlacements(
+  inputPath: string,
+  placements: ImagePlacement[]
+): Promise<Array<{ block: ContentBlock; page: number; topY: number; placement: ImagePlacement }>> {
+  const SCALE = 2
+  const entries: Array<{ block: ContentBlock; page: number; topY: number; placement: ImagePlacement }> = []
+  const pageHptCache = new Map<number, number>()
+  for (const pl of placements) {
+    if (pl.displayW < 40 || pl.displayH < 40) continue // skip tiny decorations/rules
+    let pageHpt = pageHptCache.get(pl.page)
+    if (pageHpt === undefined) {
+      const probe = await renderForDetect(inputPath, pl.page, 1)
+      pageHpt = probe ? probe.renderH : 792
+      pageHptCache.set(pl.page, pageHpt)
+    }
+    const yTop = pl.yBot + pl.displayH
+    const clipBox = {
+      x0: pl.x * SCALE,
+      y0: (pageHpt - yTop) * SCALE,
+      x1: (pl.x + pl.displayW) * SCALE,
+      y1: (pageHpt - pl.yBot) * SCALE
+    }
+    let clip
+    try {
+      clip = await renderClip(inputPath, pl.page, clipBox, SCALE)
+    } catch {
+      continue
+    }
+    if (!clip || clip.png.length < 1024) continue
+    entries.push({
+      block: {
+        type: 'image',
+        page: pl.page,
+        imageData: new Uint8Array(clip.png),
+        imageFormat: 'png',
+        imagePixelWidth: clip.w,
+        imagePixelHeight: clip.h
+      },
+      page: pl.page,
+      topY: yTop,
+      placement: pl
+    })
+  }
+  return entries
+}
+
+/**
  * Extract a flat content-block stream from the PDF at `inputPath`.
  *
  * @param inputPath path to the source PDF.
@@ -1252,12 +1311,21 @@ export async function captureFlow(
     matchedImages.push(...pairs)
     imageCount += pairs.length
   }
-  console.log(`[capture/flow] extracted ${imageCount} images from ${max} pages`)
+  // Placements pdf-lib couldn't byte-extract (JPXDecode/JPEG2000 etc.) — rasterize
+  // them via pdfjs so their figures aren't silently dropped (E2E: missing figures).
+  const matchedSet = new Set(matchedImages.map((m) => m.placement))
+  const allPlacements = [...placementsByPage.values()].flat()
+  const unmatched = allPlacements.filter((p) => !matchedSet.has(p))
+  const rasterizedImages = await rasterizePlacements(inputPath, unmatched)
+  imageCount += rasterizedImages.length
+  console.log(`[capture/flow] extracted ${matchedImages.length} + rasterized ${rasterizedImages.length} images (of ${allPlacements.length} placements) from ${max} pages`)
 
   // C1 layout detection (BEFORE prose assembly): sparse figure regions, so their
   // extractable labels can be dropped from prose (they'd otherwise leak in as
-  // garbage and collide with the rasterized figure).
-  const figureRegions = await detectFigureRegions(inputPath, max, matchedImages)
+  // garbage and collide with the rasterized figure). Coverage includes the
+  // rasterized JPX placements so C1 doesn't re-rasterize the same region.
+  const coverage = [...matchedImages, ...rasterizedImages.map((r) => ({ image: null as unknown as ExtractedImage, placement: r.placement }))]
+  const figureRegions = await detectFigureRegions(inputPath, max, coverage)
   const regionsByPage = new Map<number, FigureRegion[]>()
   for (const r of figureRegions) {
     const a = regionsByPage.get(r.page) ?? []
@@ -1442,6 +1510,8 @@ export async function captureFlow(
       blockEntries.push({ block: imgBlock, page: placement.page, topY: placement.centerY })
     }
   }
+  // Rasterized JPX/other un-extractable figures (E2E: missing figures).
+  for (const r of rasterizedImages) blockEntries.push({ block: r.block, page: r.page, topY: r.topY })
 
   // Step 7.5: C1 — rasterize the detected sparse figure regions into image
   // blocks (their leaked labels were already dropped from prose above).
