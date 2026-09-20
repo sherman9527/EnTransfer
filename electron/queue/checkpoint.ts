@@ -19,7 +19,7 @@
  */
 
 import { promises as fsp } from 'node:fs'
-import { dirname, join, resolve, sep } from 'node:path'
+import { basename, dirname, join, resolve, sep } from 'node:path'
 import type { JobStatus } from '../../shared/types'
 
 // ---------------------------------------------------------------------------
@@ -60,6 +60,28 @@ const CHECKPOINT_FILE = 'checkpoint.json'
 const TRANSLATION_FILE = 'translation.jsonl'
 const STATE_FILE = 'state.json'
 const CAPTURE_META_FILE = 'capture.json'
+
+// Monotonic counter so each atomic write gets a UNIQUE tmp name — concurrent
+// save() calls (a progress tick racing the export-phase save) must never share
+// one `<file>.tmp`, or the first rename steals it and the second throws ENOENT.
+let tmpSeq = 0
+
+/** rename with backoff for transient Windows locks (AV/indexer EPERM/EBUSY). */
+async function renameWithRetry(src: string, dest: string, tries = 5): Promise<void> {
+  for (let i = 0; i < tries; i++) {
+    try {
+      await fsp.rename(src, dest)
+      return
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if ((code === 'EPERM' || code === 'EBUSY') && i < tries - 1) {
+        await new Promise((r) => setTimeout(r, 20 * (i + 1)))
+        continue
+      }
+      throw err
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // CheckpointStore
@@ -103,10 +125,17 @@ export class CheckpointStore {
    * target. On Windows rename replaces the destination atomically (libuv).
    */
   private async atomicWrite(path: string, data: string): Promise<void> {
-    await fsp.mkdir(dirname(path), { recursive: true })
-    const tmp = path + '.tmp'
-    await fsp.writeFile(tmp, data, 'utf8')
-    await fsp.rename(tmp, path)
+    const dir = dirname(path)
+    await fsp.mkdir(dir, { recursive: true })
+    // Unique tmp per write → concurrent saves never collide on one tmp file.
+    const tmp = join(dir, `${basename(path)}.${process.pid}.${(tmpSeq++).toString(36)}.tmp`)
+    try {
+      await fsp.writeFile(tmp, data, 'utf8')
+      await renameWithRetry(tmp, path)
+    } catch (err) {
+      await fsp.rm(tmp, { force: true }).catch(() => {})
+      throw err
+    }
   }
 
   // ----- checkpoint.json (atomic) -----

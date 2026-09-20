@@ -18,6 +18,7 @@ import { joinBatch, splitBatch } from './batch-format.ts'
 import { isGarbageText, garbageRatio } from './text-garbage.ts'
 import { validateModelOutput, validateRestored } from './pdf/validate.ts'
 import { TranslationCache } from './models/translation-cache.ts'
+import { CheckpointStore } from './queue/checkpoint.ts'
 import { isHardwareError } from './models/engine-errors.ts'
 import { joinFragments, isRunningFurniture, stripBleedingPageNumbers, looksLikeCode, joinLines, cleanTranslation, mergeOverlappingPlacements, placementIou } from './pdf/capture/line-utils.ts'
 import { matchesFilter } from '../shared/job-category.ts'
@@ -281,6 +282,33 @@ console.log('R25 matchesFilter: queue category buckets')
   check('active includes paused', matchesFilter('paused', 'active'))
   check('active excludes queued/done', !matchesFilter('queued', 'active') && !matchesFilter('done', 'active'))
   check('error/canceled only in all', !matchesFilter('error', 'active') && !matchesFilter('canceled', 'active') && !matchesFilter('error', 'done') && !matchesFilter('error', 'queued'))
+}
+
+// R26 — concurrent checkpoint saves must not collide on a shared tmp file
+// (the 98% ENOENT crash: progress-tick save racing the export-phase save).
+console.log('R26 checkpoint: concurrent saves are race-free')
+{
+  const dir = await mkdtemp(join(tmpdir(), 'entransfer-ckpt-'))
+  try {
+    const store = new CheckpointStore(dir)
+    const id = 'job-r26'
+    let threw = false
+    try {
+      await Promise.all(
+        Array.from({ length: 40 }, (_, i) =>
+          store.save(id, { phase: 'translating', completedPages: i, progress: i * 2, translatedUnits: 0, totalUnits: 0 }))
+      )
+    } catch {
+      threw = true
+    }
+    check('40 concurrent saves do not throw', !threw)
+    const cp = await store.load(id)
+    check('checkpoint.json present & valid', cp !== null && typeof cp.progress === 'number')
+    const files = await readdir(join(dir, id))
+    check('no .tmp residue after concurrent saves', files.every((f) => !f.endsWith('.tmp')))
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
 }
 
 // ---------------------------------------------------------------------------
