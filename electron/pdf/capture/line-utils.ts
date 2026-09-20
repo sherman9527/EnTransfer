@@ -165,3 +165,44 @@ export function cleanTranslation(s: string): string {
     .replace(/^\s*(译文|翻译|中文翻译|Translation|Translated)\s*[:：]\s*/i, '')
     .trim()
 }
+
+/** Page-rectangle fields needed to detect overlapping image placements. */
+export interface PlacementRect {
+  x: number
+  yBot: number
+  displayW: number
+  displayH: number
+  pixelW: number
+  pixelH: number
+}
+
+/** IoU of two placements' page rectangles (bottom-up; overlap is axis-aligned). */
+export function placementIou(a: PlacementRect, b: PlacementRect): number {
+  const ix = Math.max(0, Math.min(a.x + a.displayW, b.x + b.displayW) - Math.max(a.x, b.x))
+  const iy = Math.max(0, Math.min(a.yBot + a.displayH, b.yBot + b.displayH) - Math.max(a.yBot, b.yBot))
+  const inter = ix * iy
+  const union = a.displayW * a.displayH + b.displayW * b.displayH - inter
+  return union > 0 ? inter / union : 0
+}
+
+/**
+ * Collapse image placements that share a page region into ONE. A single visual
+ * figure is very often backed by 2+ image XObjects painted at (near-)identical
+ * rectangles — a base image plus its soft-mask, or a high-res image plus a
+ * lower-res preview (O'Reilly JPX figures: 284x462 + 204x340 at the same spot).
+ * Emitting one block per placement duplicated every such figure. Greedy: keep
+ * the largest-pixel-area placement of each overlapping cluster (the base image —
+ * best for byte-extract matching), preserving the original top-down order.
+ */
+export function mergeOverlappingPlacements<T extends PlacementRect>(placements: T[]): T[] {
+  if (placements.length <= 1) return placements
+  const byArea = placements
+    .slice()
+    .sort((a, b) => b.pixelW * b.pixelH - a.pixelW * a.pixelH)
+  const kept: T[] = []
+  for (const p of byArea) {
+    if (!kept.some((k) => placementIou(p, k) >= 0.5)) kept.push(p)
+  }
+  const keptSet = new Set(kept)
+  return placements.filter((p) => keptSet.has(p))
+}

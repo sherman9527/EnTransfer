@@ -27,7 +27,8 @@ import { renderForDetect, renderClip, disposeRenderer } from './page-renderer'
 import {
   joinFragments, isRunningFurniture, stripBleedingPageNumbers,
   looksLikeCode, joinLines, CODE_FONT_RATIO,
-  MAGIC_CELL_RE, ASCII_DUMP_RE, REPL_PROMPT_RE
+  MAGIC_CELL_RE, ASCII_DUMP_RE, REPL_PROMPT_RE,
+  mergeOverlappingPlacements
 } from './line-utils'
 import {
   PDFDocument,
@@ -1332,10 +1333,14 @@ export async function captureFlow(
 
       allLines.push(...filtered)
 
-      // Step 3b: track image placements via operatorList CTM.
+      // Step 3b: track image placements via operatorList CTM. A figure is often
+      // painted by 2+ overlapping XObjects (base + soft-mask/preview); merge them
+      // so each visual figure yields ONE block (else rasterize duplicates it).
       try {
         const opList = await page.getOperatorList()
-        const placements = trackImagePlacements(opList.fnArray, opList.argsArray, pageNumber)
+        const placements = mergeOverlappingPlacements(
+          trackImagePlacements(opList.fnArray, opList.argsArray, pageNumber)
+        )
         if (placements.length > 0) {
           placementsByPage.set(pageNumber, placements)
         }

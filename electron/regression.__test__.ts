@@ -19,7 +19,7 @@ import { isGarbageText, garbageRatio } from './text-garbage.ts'
 import { validateModelOutput, validateRestored } from './pdf/validate.ts'
 import { TranslationCache } from './models/translation-cache.ts'
 import { isHardwareError } from './models/engine-errors.ts'
-import { joinFragments, isRunningFurniture, stripBleedingPageNumbers, looksLikeCode, joinLines, cleanTranslation } from './pdf/capture/line-utils.ts'
+import { joinFragments, isRunningFurniture, stripBleedingPageNumbers, looksLikeCode, joinLines, cleanTranslation, mergeOverlappingPlacements, placementIou } from './pdf/capture/line-utils.ts'
 
 let failures = 0
 function check(name: string, cond: boolean): void {
@@ -247,6 +247,27 @@ console.log('R23 cleanTranslation strips label echo')
   check('strips 译文：', cleanTranslation('译文：数据湖架构') === '数据湖架构')
   check('strips Translation:', cleanTranslation('Translation: the lakehouse') === 'the lakehouse')
   check('leaves normal text', cleanTranslation('这是一段正常的中文译文。') === '这是一段正常的中文译文。')
+}
+
+// R24 — mergeOverlappingPlacements collapses a figure's base+soft-mask/preview
+// XObjects (painted at the same page rect) into ONE, so figures aren't duplicated.
+console.log('R24 mergeOverlappingPlacements dedups a duplicated figure')
+{
+  const rect = (x: number, yBot: number, w: number, h: number, pw: number, ph: number) =>
+    ({ x, yBot, displayW: w, displayH: h, pixelW: pw, pixelH: ph })
+  // Real Delta Lake Figure 1-2 (p24): base + mask at the EXACT same rectangle.
+  const p24 = [rect(79.9, 277.8, 344.6, 324.5, 479, 451), rect(79.9, 277.8, 344.6, 324.5, 359, 338)]
+  check('identical rects -> IoU 1', Math.abs(placementIou(p24[0], p24[1]) - 1) < 1e-9)
+  check('p24 base+mask collapse to 1', mergeOverlappingPlacements(p24).length === 1)
+  check('keeps the higher-res base', mergeOverlappingPlacements(p24)[0]?.pixelW === 479)
+  // Real Figure 1-3 (p27): near-coincident (offset ~9pt) -> still one figure.
+  const p27 = [rect(149.9, 269.6, 204.7, 332.6, 284, 462), rect(158.8, 275.4, 195.8, 326.9, 204, 340)]
+  check('p27 overlapping pair collapse to 1', mergeOverlappingPlacements(p27).length === 1)
+  // Control: two distinct side-by-side figures must NOT be merged.
+  const side = [rect(50, 100, 100, 100, 200, 200), rect(210, 100, 100, 100, 200, 200)]
+  check('disjoint rects -> IoU 0', placementIou(side[0], side[1]) === 0)
+  check('side-by-side figures kept (2)', mergeOverlappingPlacements(side).length === 2)
+  check('single placement passthrough', mergeOverlappingPlacements([p24[0]]).length === 1)
 }
 
 // ---------------------------------------------------------------------------
