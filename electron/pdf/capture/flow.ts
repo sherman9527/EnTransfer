@@ -24,7 +24,11 @@ import * as zlib from 'node:zlib'
 import * as pdfjsNamespace from 'pdfjs-dist/legacy/build/pdf.js'
 import { LayoutDetector } from './layout-detector'
 import { renderForDetect, renderClip, disposeRenderer } from './page-renderer'
-import { joinFragments, isRunningFurniture, stripBleedingPageNumbers } from './line-utils'
+import {
+  joinFragments, isRunningFurniture, stripBleedingPageNumbers,
+  looksLikeCode, joinLines, CODE_FONT_RATIO,
+  MAGIC_CELL_RE, ASCII_DUMP_RE, REPL_PROMPT_RE
+} from './line-utils'
 import {
   PDFDocument,
   PDFName,
@@ -150,23 +154,8 @@ function isTextItem(item: unknown): item is PdfjsTextItem {
 // ---------------------------------------------------------------------------
 // Classification heuristics
 // ---------------------------------------------------------------------------
-
-const MONO_FONT_RE = /Courier|Consolas|Menlo|Monaco|monospace|Code\d*$/i
-const CODE_SYMBOL_RE = /[{};=[\]<>|+%#]|=>|::|\/\/|->|--/g
-// Code blocks in these books use an OPAQUE subset font (e.g. "g_d0_f1") that
-// MONO_FONT_RE can't match, and their content (%sql, +---+ dumps, -- comments)
-// isn't in CODE_SYMBOL_RE — so they were translated as prose (E2E bug). Catch
-// them by explicit markers + a smaller-than-body font signal.
-const MAGIC_CELL_RE = /^\s*%\s*(sql|python|pyspark|scala|r|md|sh|bash|run)\b/i
-const ASCII_DUMP_RE = /^\s*[+][-+=|]{3,}|^\s*[|][-+=| ]{3,}\s*[|]/ // +----+ or |----|
-// REPL prompts (scala> / python> / spark> / >) and bare filesystem paths are
-// console output — common in this code-heavy book but lacking code symbols.
-const REPL_PROMPT_RE = /^\s*(scala|python|py|spark|sql|jupyter|in|out)\s*(\[\d*\])?\s*>/i
-const PATH_LINE_RE = /^\s*[~.]?\/[\w./@+-]{4,}\s*$/ // a lone /dbfs/... path
-const SQL_CODE_RE = /\b(SELECT|FROM|WHERE|INSERT|INTO|CREATE|DROP|ALTER|MERGE|UPDATE|DELETE|GROUP BY|ORDER BY)\b/i
-const PY_CODE_RE = /^\s*(import |from \S+ import|def \w+\(|print\(|return |class \w+)/
-/** Font size at/below this fraction of body size is a code candidate. */
-const CODE_FONT_RATIO = 0.86
+// (code/console detection + its regexes live in line-utils.looksLikeCode so they
+//  are unit-testable; the list/heading/furniture regexes below stay here.)
 
 /** Numbered list prefix: "1.", "1)", "1.1", "1.1.1", "(1)", "(a)", "a.", etc. */
 const LIST_NUMBERED_RE = /^\s*(?:\(\d+(?:\.\d+)*\)|\d+(?:\.\d+)*[.)]\s+|[a-zA-Z][.)]\s+)/
@@ -419,23 +408,7 @@ function detectTables(lines: RawLine[], codeFonts: Set<string>): { tables: Detec
   return { tables, skip }
 }
 
-/**
- * Join a paragraph's visual lines with spaces, DE-HYPHENATING soft line-break
- * hyphens: a line ending in "<letter>-" followed by a line starting lowercase is
- * a hyphenated word split across lines ("com-" + "monly" -> "commonly"), not a
- * real hyphen. (E2E: "com- monly" leaked into output.)
- */
-function joinLines(texts: string[]): string {
-  let out = ''
-  for (const raw of texts) {
-    const t = raw.trim()
-    if (!t) continue
-    if (out && /[A-Za-z]-$/.test(out) && /^[a-z]/.test(t)) out = out.slice(0, -1) + t
-    else out = out ? `${out} ${t}` : t
-  }
-  return out.replace(/\s+/g, ' ').trim()
-}
-
+/** Merge visual lines into paragraphs (joinLines de-hyphenates soft breaks). */
 function mergeLinesToParas(lines: RawLine[], bodySize: number): Para[] {
   const paras: Para[] = []
   let cur: {
@@ -651,19 +624,10 @@ function classifyPara(p: Para, bodySize: number, codeFonts: Set<string>): ParaKi
   const fSymCount = (text.match(FORMULA_SYMBOL_RE) || []).length
   if (text.length > 5 && fSymCount >= 2 && fSymCount / text.length > 0.08) return 'formula'
 
-  // Code: the DEFINITIVE signal is the code FONT (same font the %sql/%sh/+---+
-  // lines use) — catches bare console output (drwxrwxrwx, Python tuples) that
-  // lack any code symbols. Plus monospace font, magic cells, ASCII/REPL/path
-  // lines, dense symbols, or code language in a small font. (E2E bug: SQL/console
-  // blocks were translated as prose.)
-  const isMono = MONO_FONT_RE.test(p.fontName)
-  const isCodeFont = !!p.fontName && codeFonts.has(p.fontName)
-  const smallFont = p.fontSize > 0 && p.fontSize <= bodySize * CODE_FONT_RATIO
-  const symCount = (text.match(CODE_SYMBOL_RE) || []).length
-  const isDenseCode = text.length > 30 && symCount >= 3 && symCount > text.length / 12
-  const isCodeLang = smallFont && (SQL_CODE_RE.test(text) || PY_CODE_RE.test(text) || symCount >= 2)
-  if (isMono || isCodeFont || isDenseCode || MAGIC_CELL_RE.test(text) || ASCII_DUMP_RE.test(text) ||
-      REPL_PROMPT_RE.test(text) || PATH_LINE_RE.test(text) || isCodeLang) return 'code'
+  // Code / console output: verbatim, never translated. Decision logic lives in
+  // line-utils.looksLikeCode (unit-tested R21); codeFonts are the fonts already
+  // proven to be code (from %sql/+---+/REPL lines) — the strongest signal.
+  if (looksLikeCode(text, p.fontName, p.fontSize, bodySize, codeFonts)) return 'code'
 
   // List item?
   if (LIST_NUMBERED_RE.test(text) || LIST_BULLET_RE.test(text)) return 'list-item'

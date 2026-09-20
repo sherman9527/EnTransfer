@@ -98,3 +98,70 @@ export function stripBleedingPageNumbers(text: string): string {
   if (t.length > 60) t = t.replace(/\s+\d{1,3}\s*$/, '')
   return t.trim()
 }
+
+// ---------------------------------------------------------------------------
+// Code / console detection (E2E: this book's code uses an opaque subset font
+// that MONO_FONT_RE can't see). Centralised here as a pure predicate so the
+// rules are regression-testable (R21) without running the native capture.
+// ---------------------------------------------------------------------------
+
+/** Font size at/below this fraction of body size is a code candidate. */
+export const CODE_FONT_RATIO = 0.86
+const MONO_FONT_RE = /Courier|Consolas|Menlo|Monaco|monospace|Code\d*$/i
+const CODE_SYMBOL_RE = /[{};=[\]<>|+%#]|=>|::|\/\/|->|--/g
+/** Databricks/Zeppelin cell magics (%sql, %python, %sh, …). */
+export const MAGIC_CELL_RE = /^\s*%\s*(sql|python|pyspark|scala|r|md|sh|bash|run)\b/i
+/** Console ASCII-table borders (+----+ or |----|). */
+export const ASCII_DUMP_RE = /^\s*[+][-+=|]{3,}|^\s*[|][-+=| ]{3,}\s*[|]/
+/** REPL prompts (scala> / python> / spark> / >). */
+export const REPL_PROMPT_RE = /^\s*(scala|python|py|spark|sql|jupyter|in|out)\s*(\[\d*\])?\s*>/i
+/** A lone filesystem path line (/dbfs/…). */
+export const PATH_LINE_RE = /^\s*[~.]?\/[\w./@+-]{4,}\s*$/
+const SQL_CODE_RE = /\b(SELECT|FROM|WHERE|INSERT|INTO|CREATE|DROP|ALTER|MERGE|UPDATE|DELETE|GROUP BY|ORDER BY)\b/i
+const PY_CODE_RE = /^\s*(import |from \S+ import|def \w+\(|print\(|return |class \w+)/
+
+/**
+ * Is this paragraph code/console output (kept verbatim, never translated)?
+ * codeFonts = font names already proven to be code (from magic/ascii/repl lines),
+ * the strongest signal — catches bare console output lacking any code symbol.
+ */
+export function looksLikeCode(
+  text: string,
+  fontName: string,
+  fontSize: number,
+  bodySize: number,
+  codeFonts: Set<string>
+): boolean {
+  const isMono = MONO_FONT_RE.test(fontName)
+  const isCodeFont = !!fontName && codeFonts.has(fontName)
+  const smallFont = fontSize > 0 && fontSize <= bodySize * CODE_FONT_RATIO
+  const symCount = (text.match(CODE_SYMBOL_RE) || []).length
+  const isDenseCode = text.length > 30 && symCount >= 3 && symCount > text.length / 12
+  const isCodeLang = smallFont && (SQL_CODE_RE.test(text) || PY_CODE_RE.test(text) || symCount >= 2)
+  return isMono || isCodeFont || isDenseCode || MAGIC_CELL_RE.test(text) ||
+    ASCII_DUMP_RE.test(text) || REPL_PROMPT_RE.test(text) || PATH_LINE_RE.test(text) || isCodeLang
+}
+
+/**
+ * Join a paragraph's visual lines, DE-HYPHENATING soft line-break hyphens:
+ * "<letter>-" at line end + a lowercase-starting next line is a hyphenated word
+ * split across lines ("com-" + "monly" -> "commonly"), not a real hyphen.
+ */
+export function joinLines(texts: string[]): string {
+  let out = ''
+  for (const raw of texts) {
+    const t = raw.trim()
+    if (!t) continue
+    if (out && /[A-Za-z]-$/.test(out) && /^[a-z]/.test(t)) out = out.slice(0, -1) + t
+    else out = out ? `${out} ${t}` : t
+  }
+  return out.replace(/\s+/g, ' ').trim()
+}
+
+/** Strip the model's echoed prompt label ("译文："/"翻译："/"Translation:") that
+ * leaks into output when the model repeats the completion cue (E2E "第一章 译文："). */
+export function cleanTranslation(s: string): string {
+  return s
+    .replace(/^\s*(译文|翻译|中文翻译|Translation|Translated)\s*[:：]\s*/i, '')
+    .trim()
+}

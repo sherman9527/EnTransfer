@@ -24,6 +24,7 @@ import type { TranslationPipeline } from './queue/manager'
 import { CheckpointStore } from './queue/checkpoint.ts'
 import type { CheckpointData } from './queue/checkpoint.ts'
 import { captureFlow, CAPTURE_VERSION, type ContentBlock } from './pdf/capture/flow'
+import { cleanTranslation } from './pdf/capture/line-utils'
 import { typesetFlow } from './pdf/typeset/flow'
 import { blocksToHtml } from './pdf/typeset/htmlFlow'
 import { printHtmlToPdf } from './pdf/typeset/chromiumPrint'
@@ -120,14 +121,6 @@ function buildTasks(blocks: ContentBlock[]): { tasks: TransTask[]; garbage: Arra
     }
   }
   return { tasks, garbage }
-}
-
-/** Strip the model's echoed prompt label ("译文："/"翻译："/"Translation:") that
- * leaks into output when the model repeats the completion cue. (E2E: "第一章 译文：") */
-function cleanTranslation(s: string): string {
-  return s
-    .replace(/^\s*(译文|翻译|中文翻译|Translation|Translated)\s*[:：]\s*/i, '')
-    .trim()
 }
 
 /** Write a translated result back into the blocks array. */

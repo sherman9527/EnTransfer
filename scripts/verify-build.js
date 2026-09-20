@@ -181,6 +181,14 @@ check('没有静态 require/import node-llama-cpp', !staticLlamaImport, '发现�
   const cap = readText('electron/pdf/capture/flow.ts')
   check('C1 表格检测在区域文本过滤之前', cap.indexOf('detectTables(bodyLines)') < cap.indexOf('!lineInRegion(l, regionsByPage)'), '顺序颠倒会重蹈 9→8 表格回归')
   check('C1 保守门按 ink 上限过滤', cap.includes('FIGURE_MAX_INK_PCT'), '缺少低-ink 保守门，会误栅格化密集表/图')
+  // E2E code/console/JSON handling wiring (regression guards — logic is in line-utils, tested by R21-R23)
+  const lineUtils = readText('electron/pdf/capture/line-utils.ts')
+  check('代码检测集中在 line-utils.looksLikeCode', lineUtils.includes('export function looksLikeCode') && cap.includes('looksLikeCode('), '代码判定被打散/未接线，控制台块会退回被翻译')
+  check('detectTables 按代码字体排除', cap.includes('codeFonts.has(l.fontName)'), 'JSON/控制台 dump 会被误判成表格（塌陷回归）')
+  check('段落合并用 joinLines 去连字符', cap.includes('joinLines(cur.texts)'), '软连字符不再合并，"com- monly" 回归')
+  check('代码行各自成段（保留换行）', cap.includes('codeLine'), '控制台块丢换行 → 挤成一坨回归')
+  const pipeSrc = readText('electron/pipeline.ts')
+  check('writeBack 剥离"译文："回显', pipeSrc.includes('cleanTranslation('), '模型回显的"译文："标签会漏进正文')
 }
 
 // ── 4. 资源文件检查 ───────────────────────────────────

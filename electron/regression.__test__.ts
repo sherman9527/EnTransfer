@@ -19,7 +19,7 @@ import { isGarbageText, garbageRatio } from './text-garbage.ts'
 import { validateModelOutput, validateRestored } from './pdf/validate.ts'
 import { TranslationCache } from './models/translation-cache.ts'
 import { isHardwareError } from './models/engine-errors.ts'
-import { joinFragments, isRunningFurniture, stripBleedingPageNumbers } from './pdf/capture/line-utils.ts'
+import { joinFragments, isRunningFurniture, stripBleedingPageNumbers, looksLikeCode, joinLines, cleanTranslation } from './pdf/capture/line-utils.ts'
 
 let failures = 0
 function check(name: string, cond: boolean): void {
@@ -214,6 +214,39 @@ console.log('R20 bleeding page-number strip is conservative')
   check('short "the value was 3" keeps 3', stripBleedingPageNumbers('the value was 3') === 'the value was 3')
   const long = 'a'.repeat(70) + ' competencies 6'
   check('long paragraph trailing page number stripped', stripBleedingPageNumbers(long) === 'a'.repeat(70) + ' competencies')
+}
+
+// R21 — code/console detection (E2E: code uses an opaque subset font). Must
+// catch magic cells, console dumps, REPL prompts, paths, and code-font lines,
+// while leaving ordinary prose alone.
+console.log('R21 looksLikeCode: code/console vs prose')
+{
+  const body = 10.5
+  const codeFont = new Set(['g_d0_f1'])
+  const noFonts = new Set<string>()
+  check('%sql cell -> code', looksLikeCode('%sql SELECT * FROM t', 'g_d0_f2', 8.5, body, noFonts))
+  check('console +---+ dump -> code', looksLikeCode('+------+------+ | a | b |', 'g_d0_f2', 8.5, body, noFonts))
+  check('REPL scala> prompt -> code', looksLikeCode('scala> val x = 1', 'g_d0_f2', 8.5, body, noFonts))
+  check('bare /dbfs path -> code', looksLikeCode('/dbfs/mnt/datalake/book/ch03', 'g_d0_f2', 8.5, body, noFonts))
+  check('code-font line (no symbols) -> code', looksLikeCode('drwxrwxrwx _delta_log', 'g_d0_f1', 8.5, body, codeFont))
+  check('plain prose -> NOT code', !looksLikeCode('The data warehouse provides a unified view of enterprise data.', 'g_d0_f2', 10.5, body, noFonts))
+  check('prose mentioning select (body font) -> NOT code', !looksLikeCode('You should select the option that fits your team.', 'g_d0_f2', 10.5, body, noFonts))
+}
+
+// R22 — joinLines de-hyphenates soft line-break hyphens but keeps real ones.
+console.log('R22 joinLines de-hyphenation')
+{
+  check('com- + monly -> commonly', joinLines(['com-', 'monly']) === 'commonly')
+  check('normal lines joined with space', joinLines(['the data', 'lake']) === 'the data lake')
+  check('hyphen before capital NOT joined', joinLines(['well-', 'Known']) === 'well- Known')
+}
+
+// R23 — cleanTranslation strips the model's echoed prompt label.
+console.log('R23 cleanTranslation strips label echo')
+{
+  check('strips 译文：', cleanTranslation('译文：数据湖架构') === '数据湖架构')
+  check('strips Translation:', cleanTranslation('Translation: the lakehouse') === 'the lakehouse')
+  check('leaves normal text', cleanTranslation('这是一段正常的中文译文。') === '这是一段正常的中文译文。')
 }
 
 // ---------------------------------------------------------------------------
