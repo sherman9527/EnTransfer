@@ -43,7 +43,7 @@ const api: EnTransferApi = {
     openFolder: (dir?: string) => ipcRenderer.invoke('app:open-folder', dir),
     openModelsDir: () => ipcRenderer.invoke('app:open-models-dir') as Promise<void>,
     getModelsDir: () => ipcRenderer.invoke('app:get-models-dir') as Promise<string>,
-    openPdfDialog: () => ipcRenderer.invoke('dialog:open-pdf') as Promise<string | null>,
+    openPdfDialog: () => ipcRenderer.invoke('dialog:open-pdf') as Promise<string[]>,
     detectScanned: (path: string) => ipcRenderer.invoke('app:detect-scanned', path) as Promise<boolean>,
     openDirDialog: (current?: string) =>
       ipcRenderer.invoke('dialog:open-dir', current) as Promise<string | null>,

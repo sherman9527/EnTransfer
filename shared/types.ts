@@ -125,8 +125,8 @@ export interface AppApi {
   openModelsDir: () => Promise<void>
   /** Absolute path of the models directory (dev: <project>/models; packaged: <exe_dir>/models). */
   getModelsDir: () => Promise<string>
-  /** Native file picker for a single PDF. Returns the absolute path, or null if cancelled. */
-  openPdfDialog: () => Promise<string | null>
+  /** Native file picker for PDFs (multi-select). Returns absolute paths; empty array if cancelled. */
+  openPdfDialog: () => Promise<string[]>
   /** True when the PDF looks like an image-only scan (no selectable text) — can't translate. */
   detectScanned: (path: string) => Promise<boolean>
   /** Native directory picker. `current` is the suggested starting path. Null if cancelled. */

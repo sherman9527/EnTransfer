@@ -20,6 +20,7 @@ import { validateModelOutput, validateRestored } from './pdf/validate.ts'
 import { TranslationCache } from './models/translation-cache.ts'
 import { isHardwareError } from './models/engine-errors.ts'
 import { joinFragments, isRunningFurniture, stripBleedingPageNumbers, looksLikeCode, joinLines, cleanTranslation, mergeOverlappingPlacements, placementIou } from './pdf/capture/line-utils.ts'
+import { matchesFilter } from '../shared/job-category.ts'
 
 let failures = 0
 function check(name: string, cond: boolean): void {
@@ -268,6 +269,18 @@ console.log('R24 mergeOverlappingPlacements dedups a duplicated figure')
   check('disjoint rects -> IoU 0', placementIou(side[0], side[1]) === 0)
   check('side-by-side figures kept (2)', mergeOverlappingPlacements(side).length === 2)
   check('single placement passthrough', mergeOverlappingPlacements([p24[0]]).length === 1)
+}
+
+// R25 — task-queue category filter (batch-import + filter feature).
+console.log('R25 matchesFilter: queue category buckets')
+{
+  check('all shows everything', matchesFilter('error', 'all') && matchesFilter('done', 'all') && matchesFilter('queued', 'all'))
+  check('queued only queued', matchesFilter('queued', 'queued') && !matchesFilter('translating', 'queued'))
+  check('done only done', matchesFilter('done', 'done') && !matchesFilter('canceled', 'done'))
+  check('active = running phases', matchesFilter('extracting', 'active') && matchesFilter('translating', 'active') && matchesFilter('typesetting', 'active') && matchesFilter('exporting', 'active'))
+  check('active includes paused', matchesFilter('paused', 'active'))
+  check('active excludes queued/done', !matchesFilter('queued', 'active') && !matchesFilter('done', 'active'))
+  check('error/canceled only in all', !matchesFilter('error', 'active') && !matchesFilter('canceled', 'active') && !matchesFilter('error', 'done') && !matchesFilter('error', 'queued'))
 }
 
 // ---------------------------------------------------------------------------

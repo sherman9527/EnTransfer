@@ -199,7 +199,9 @@ check('没有静态 require/import node-llama-cpp', !staticLlamaImport, '发现�
   check('扫描件探测函数存在（无文字=扫描）', cap.includes('export async function detectScannedPdf'), '缺少扫描 PDF 判定')
   check('图片 placement 去重已接线（base+mask 合并）', cap.includes('mergeOverlappingPlacements('), '同一图形被 base+软掩码重复栅格化 → 译文图片 duplicate')
   check('扫描件 IPC 通道打通 (preload+main)', preload.includes('app:detect-scanned') && mainTs.includes("ipcMain.handle('app:detect-scanned'"), '探测函数没接上 IPC，上传不会拦截扫描件')
-  check('上传入口按扫描件拦截', tqs.includes('ensureTextPdf('), '扫描版 PDF 会被排进队列产出空译文')
+  check('上传入口按扫描件拦截', tqs.includes('detectScanned('), '扫描版 PDF 会被排进队列产出空译文')
+  check('PDF 选择支持多选（批量导入）', mainTs.includes("properties: ['openFile', 'multiSelections']"), '只能单个导入，不满足批量导入需求')
+  check('任务队列分类过滤已接线', tqs.includes('matchesFilter(') && tqs.includes('JOB_FILTERS'), '缺分类过滤按钮（全部/进行中/排队中/已完成）')
 }
 
 // ── 4. 资源文件检查 ───────────────────────────────────

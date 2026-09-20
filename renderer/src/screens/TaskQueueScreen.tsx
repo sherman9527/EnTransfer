@@ -14,6 +14,7 @@ import { appApi } from '../ipc/client'
 import { STATUS_META, useQueueStore } from '../store/queueStore'
 import { useModelStore } from '../store/modelStore'
 import { useUiStore } from '../store/uiStore'
+import { JOB_FILTERS, matchesFilter, type JobFilter } from '../../../shared/job-category'
 import type { JobStatus, TranslationJob } from '../../../shared/types'
 
 const ACTIVE_STATUSES: ReadonlySet<JobStatus> = new Set([
@@ -54,7 +55,7 @@ export function TaskQueueScreen() {
   } = useQueueStore()
 
   const [dragOver, setDragOver] = useState(false)
-  const [dropHint, setDropHint] = useState('')
+  const [filter, setFilter] = useState<JobFilter>('all')
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -73,41 +74,59 @@ export function TaskQueueScreen() {
     return false
   }
 
-  async function handleAddPdf() {
-    if (!ensureModelReady()) return
-    const path = await appApi.openPdfDialog()
-    if (path && (await ensureTextPdf(path))) void addJob(path)
-  }
-
-  // Reject image-only scans (no selectable text) — the app has no OCR. A failed
-  // probe must NOT block; return true so the pipeline reports real errors later.
-  async function ensureTextPdf(path: string): Promise<boolean> {
-    try {
-      if (await appApi.detectScanned(path)) {
-        useUiStore.getState().showToast('检测到扫描版 PDF（页面没有可选中的文字），暂不支持扫描件翻译')
-        return false
+  // Batch import: add every valid PDF, skip the rest with ONE summary toast —
+  // a bad file (scan / non-PDF) must never block the good ones. A failed
+  // scanned-probe is treated as "not scanned" so the pipeline surfaces real
+  // errors later rather than us silently dropping a possibly-valid file.
+  async function addValidPaths(paths: string[]): Promise<void> {
+    const rejected: string[] = []
+    for (const p of paths) {
+      if (!/\.pdf$/i.test(p)) {
+        rejected.push(`${basename(p)}（非 PDF）`)
+        continue
       }
-      return true
-    } catch {
-      return true
+      let scanned = false
+      try {
+        scanned = await appApi.detectScanned(p)
+      } catch {
+        scanned = false
+      }
+      if (scanned) {
+        rejected.push(`${basename(p)}（扫描件）`)
+        continue
+      }
+      await addJob(p)
+    }
+    if (rejected.length > 0) {
+      const list = rejected.slice(0, 3).join('、') + (rejected.length > 3 ? ` 等 ${rejected.length} 个文件` : '')
+      useUiStore.getState().showToast(`已跳过 ${rejected.length} 个不支持的文件：${list}`)
     }
   }
 
-  // Native file drop (Electron exposes the absolute path on File.path).
+  async function handleAddPdf() {
+    if (!ensureModelReady()) return
+    const paths = await appApi.openPdfDialog()
+    await addValidPaths(paths)
+  }
+
+  // Native file drop (Electron exposes the absolute path on File.path). Supports
+  // multiple files; non-PDF / scanned entries are skipped, the rest are queued.
   function handleDrop(e: DragEvent<HTMLDivElement>) {
     e.preventDefault()
     setDragOver(false)
-    const file = e.dataTransfer.files?.[0] as (File & { path?: string }) | undefined
-    const p = file?.path
-    if (p && /\.pdf$/i.test(p)) {
-      if (ensureModelReady()) void (async () => { if (await ensureTextPdf(p)) void addJob(p) })()
-    } else if (p) {
-      setDropHint(`仅支持 PDF 文件，已忽略「${basename(p)}」`)
-      window.setTimeout(() => setDropHint(''), 4000)
-    }
+    const paths = Array.from(e.dataTransfer.files ?? [])
+      .map((f) => (f as File & { path?: string }).path)
+      .filter((p): p is string => !!p)
+    if (paths.length === 0) return
+    void (async () => {
+      if (!ensureModelReady()) return
+      await addValidPaths(paths)
+    })()
   }
 
   const pausedCount = jobs.filter((j) => j.status === 'paused').length
+  const shown = jobs.filter((j) => matchesFilter(j.status, filter))
+  const countOf = (f: JobFilter): number => jobs.filter((j) => matchesFilter(j.status, f)).length
 
   return (
     <div
@@ -152,8 +171,29 @@ export function TaskQueueScreen() {
           </button>
         </div>
       )}
-      {dropHint && (
-        <div className="rounded-card border border-line bg-panel px-3 py-2 text-xs text-ink2">{dropHint}</div>
+      {jobs.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {JOB_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`flex items-center gap-1.5 rounded-pill px-3 py-1 text-xs font-medium transition-colors ${
+                filter === f.id
+                  ? 'bg-accent text-white'
+                  : 'border border-line text-ink2 hover:bg-panel'
+              }`}
+            >
+              {f.label}
+              <span
+                className={`rounded-pill px-1.5 text-[10px] ${
+                  filter === f.id ? 'bg-white/20 text-white' : 'bg-panel text-ink3'
+                }`}
+              >
+                {countOf(f.id)}
+              </span>
+            </button>
+          ))}
+        </div>
       )}
 
       {loading && jobs.length === 0 ? (
@@ -179,23 +219,27 @@ export function TaskQueueScreen() {
               松开以添加 PDF
             </div>
           )}
-          {jobs.map((job) => (
-            <JobCard
-              key={job.id}
-              job={job}
-              busy={!!busyIds[job.id]}
-              onPause={() => void pauseJob(job.id)}
-              onResume={() => void resumeJob(job.id)}
-              onCancel={() => void cancelJob(job.id)}
-              onRetry={() => void retryJob(job.id)}
-              onRemove={() => {
-                if (window.confirm(`确定删除「${basename(job.inputPath)}」？已完成的部分译文也会一并删除。`)) {
-                  void removeJob(job.id)
-                }
-              }}
-              onOpen={() => void openJobFolder(job.id)}
-            />
-          ))}
+          {shown.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center text-sm text-ink3">该分类下暂无任务</div>
+          ) : (
+            shown.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                busy={!!busyIds[job.id]}
+                onPause={() => void pauseJob(job.id)}
+                onResume={() => void resumeJob(job.id)}
+                onCancel={() => void cancelJob(job.id)}
+                onRetry={() => void retryJob(job.id)}
+                onRemove={() => {
+                  if (window.confirm(`确定删除「${basename(job.inputPath)}」？已完成的部分译文也会一并删除。`)) {
+                    void removeJob(job.id)
+                  }
+                }}
+                onOpen={() => void openJobFolder(job.id)}
+              />
+            ))
+          )}
         </div>
       )}
     </div>

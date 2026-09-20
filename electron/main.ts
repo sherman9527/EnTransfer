@@ -192,15 +192,15 @@ function registerIpc(): void {
   ipcMain.handle('dialog:open-pdf', async () => {
     const win = mainWindow
     const opts: Electron.OpenDialogOptions = {
-      title: '选择要翻译的 PDF',
-      properties: ['openFile'],
+      title: '选择要翻译的 PDF（可多选）',
+      properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'PDF Documents', extensions: ['pdf'] }]
     }
     const res = win
       ? await dialog.showOpenDialog(win, opts)
       : await dialog.showOpenDialog(opts)
-    if (res.canceled || res.filePaths.length === 0) return null
-    return res.filePaths[0]
+    if (res.canceled) return []
+    return res.filePaths
   })
 
   // ---- Scanned-PDF probe (upload gate): image-only scans can't be translated ----
