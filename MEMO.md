@@ -233,3 +233,12 @@ llama-engine.ts(TDZ/gpuLayers判断/spec开关/分句阈值/maxTokens钳制) reg
 - **LoRA 管线脚手架**：harvest-segments(CJK/页眉/水印过滤)、align_embed(LaBSE/MiniLM 单调对齐)、train_lora(QLoRA)、eval_gate。结论：自动对齐精度上限~50%（2.5:1粒度错配），数据是瓶颈非管线。
 - 交付：gate 全绿、verify 43/43 → 重打 译事郎 Setup 0.1.0.exe。push 待网络（本地多个 commit 排队）。
 - **缺图根因 + 修复**：Delta Lake 前100页 15/16 图是 JPXDecode(JPEG2000)，extractImagesFromPage 只支持 DCT/Flate → 静默丢弃。新增 rasterizePlacements：对无法字节提取的图片 placement，用 pdfjs renderClip 栅格化其区域（pdfjs 能解码 JPX）。验证：100页 imageBlocks 从 ~1 → 47（38 栅格化 + 9 C1）。加 verify 守卫防回归。
+
+## 2026-09-20 — canvas 崩溃修复 + 上传门(模型/扫描件) + 图片去重 + 改名通事官
+- **Cannot find module 'canvas'（安装后含图页崩）**：pdf.js 走运行时 `require()` 加载（裸 CJS require 不被打包），build 期 `canvas→canvas-stub` 别名管不到它**内部**的 `require('canvas')`（scratch 画布/DOMMatrix/Path2D）。修法：page-renderer 模块加载时挂 `Module._resolveFilename`，把裸名 `canvas` 解析到 `@napi-rs/canvas`。探针：不打钩 4/8 图页崩，打钩 8/8 全渲染。verify 守卫。
+- **上传前模型就绪门**：新增 `uiStore`（全局 screen + toast）；TaskQueueScreen 两个上传入口先查 `models.some(status==='available')`，没有就 toast + 跳模型页。
+- **扫描件拦截**：`detectScannedPdf`（采样≤12页，仅当无任何一页有≥20可选文字才判扫描，保守；解析失败放行）+ `app:detect-scanned` IPC；上传时 toast「不支持扫描版 PDF」。
+- **图片 duplicate 根因 + 修复**：一个图形常由 2 个重叠 image XObject 画在同一页矩形（底图+软掩码/高清+预览，如 JPX 284x462+204x340）。rasterizePlacements 每个 placement 出一张 → 每张图重复。新增纯函数 `mergeOverlappingPlacements`（IoU≥0.5 合并，留像素最大）接进 trackImagePlacements。探针 pp19-60：32→17（去 15 重复），真图不误伤。R24 单测 + verify 守卫。
+- **死代码清理**：getDefaultModelId / isTerminalStatus / SamplingDefaults / queue-manager 状态守卫再导出（+其专用 canDelete import；canDelete 本体保留，__test__ 在用）。修好坏掉的 e2e-test.ts（引擎重构后 import 悬空，tsconfig 外没被发现）。
+- **改名 译事郎 → 通事官**：productName/标题/快捷方式/卸载名/UI footer/alt → 通事官；**保留** ASCII `name=entransfer` + `appId=com.entransfer.app`（升级/卸载器 entransfer-updater 零残留依赖它，改 appId 会破坏就地升级）。
+- 交付：gate 全绿、verify 54/54 → 重打 通事官 Setup 0.1.0.exe。7 个提交已 push origin/main（推送前做了密钥扫描，无敏感信息）。

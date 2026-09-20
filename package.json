@@ -1,9 +1,9 @@
 {
     "name": "entransfer",
     "version": "0.1.0",
-    "description": "译事郎 — offline local PDF translation & typesetting desktop app",
+    "description": "通事官 — offline local PDF translation & typesetting desktop app",
     "private": true,
-    "author": "译事郎",
+    "author": "通事官",
     "license": "MIT",
     "main": "out/main/index.js",
     "scripts": {
@@ -49,7 +49,7 @@
     },
     "build": {
         "appId": "com.entransfer.app",
-        "productName": "译事郎",
+        "productName": "通事官",
         "asar": true,
         "npmRebuild": false,
         "directories": {
@@ -95,8 +95,8 @@
             "allowToChangeInstallationDirectory": true,
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true,
-            "shortcutName": "译事郎",
-            "uninstallDisplayName": "译事郎",
+            "shortcutName": "通事官",
+            "uninstallDisplayName": "通事官",
             "installerIcon": "build/icon.ico",
             "uninstallerIcon": "build/icon.ico",
             "deleteAppDataOnUninstall": true,
