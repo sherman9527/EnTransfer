@@ -419,6 +419,23 @@ function detectTables(lines: RawLine[], codeFonts: Set<string>): { tables: Detec
   return { tables, skip }
 }
 
+/**
+ * Join a paragraph's visual lines with spaces, DE-HYPHENATING soft line-break
+ * hyphens: a line ending in "<letter>-" followed by a line starting lowercase is
+ * a hyphenated word split across lines ("com-" + "monly" -> "commonly"), not a
+ * real hyphen. (E2E: "com- monly" leaked into output.)
+ */
+function joinLines(texts: string[]): string {
+  let out = ''
+  for (const raw of texts) {
+    const t = raw.trim()
+    if (!t) continue
+    if (out && /[A-Za-z]-$/.test(out) && /^[a-z]/.test(t)) out = out.slice(0, -1) + t
+    else out = out ? `${out} ${t}` : t
+  }
+  return out.replace(/\s+/g, ' ').trim()
+}
+
 function mergeLinesToParas(lines: RawLine[], bodySize: number): Para[] {
   const paras: Para[] = []
   let cur: {
@@ -489,7 +506,7 @@ function mergeLinesToParas(lines: RawLine[], bodySize: number): Para[] {
       cur.fontSize = (cur.fontSize + line.fontSize) / 2
     } else {
       paras.push({
-        text: cur.texts.join(' ').replace(/\s+/g, ' ').trim(),
+        text: joinLines(cur.texts),
         fontSize: cur.fontSize,
         fontName: cur.fontName,
         page: cur.page,
@@ -510,7 +527,7 @@ function mergeLinesToParas(lines: RawLine[], bodySize: number): Para[] {
   }
   if (cur) {
     paras.push({
-      text: cur.texts.join(' ').replace(/\s+/g, ' ').trim(),
+      text: joinLines(cur.texts),
       fontSize: cur.fontSize,
       fontName: cur.fontName,
       page: cur.page,
@@ -626,7 +643,7 @@ const FORMULA_SYMBOL_RE = /[∑∫√∞≈≠≤≥±×÷∂∆∏∏∑∫]/g
  */
 const SECTION_NUM_HEADING_RE = /^\d+(?:\.\d+)+\s*[A-Z]/
 
-function classifyPara(p: Para, bodySize: number): ParaKind {
+function classifyPara(p: Para, bodySize: number, codeFonts: Set<string>): ParaKind {
   const text = p.text.trim()
   if (text.length === 0) return 'body'
 
@@ -634,17 +651,18 @@ function classifyPara(p: Para, bodySize: number): ParaKind {
   const fSymCount = (text.match(FORMULA_SYMBOL_RE) || []).length
   if (text.length > 5 && fSymCount >= 2 && fSymCount / text.length > 0.08) return 'formula'
 
-  // Code: monospace font, dense program symbols, a magic cell (%sql/%python),
-  // a console ASCII dump (+---+ / |---|), or code language — the last only when
-  // the run is smaller than body (these books' code uses an opaque subset font
-  // MONO_FONT_RE can't see). The smallFont gate keeps prose like "select the
-  // best" or "a -- b" out of code. (E2E bug: SQL/console blocks were translated.)
+  // Code: the DEFINITIVE signal is the code FONT (same font the %sql/%sh/+---+
+  // lines use) — catches bare console output (drwxrwxrwx, Python tuples) that
+  // lack any code symbols. Plus monospace font, magic cells, ASCII/REPL/path
+  // lines, dense symbols, or code language in a small font. (E2E bug: SQL/console
+  // blocks were translated as prose.)
   const isMono = MONO_FONT_RE.test(p.fontName)
+  const isCodeFont = !!p.fontName && codeFonts.has(p.fontName)
   const smallFont = p.fontSize > 0 && p.fontSize <= bodySize * CODE_FONT_RATIO
   const symCount = (text.match(CODE_SYMBOL_RE) || []).length
   const isDenseCode = text.length > 30 && symCount >= 3 && symCount > text.length / 12
   const isCodeLang = smallFont && (SQL_CODE_RE.test(text) || PY_CODE_RE.test(text) || symCount >= 2)
-  if (isMono || isDenseCode || MAGIC_CELL_RE.test(text) || ASCII_DUMP_RE.test(text) ||
+  if (isMono || isCodeFont || isDenseCode || MAGIC_CELL_RE.test(text) || ASCII_DUMP_RE.test(text) ||
       REPL_PROMPT_RE.test(text) || PATH_LINE_RE.test(text) || isCodeLang) return 'code'
 
   // List item?
@@ -1361,7 +1379,7 @@ export async function captureFlow(
   }
 
   for (const para of paras) {
-    const kind = classifyPara(para, bodySize)
+    const kind = classifyPara(para, bodySize, codeFonts)
 
     if (kind === 'code') {
       flushList()
