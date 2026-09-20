@@ -1216,6 +1216,66 @@ async function rasterizePlacements(
   return entries
 }
 
+// ---------------------------------------------------------------------------
+// Scanned-PDF probe (upload-time gate)
+// ---------------------------------------------------------------------------
+
+/** A "text" page needs at least this many non-whitespace glyphs. */
+const SCANNED_TEXT_PAGE_MIN = 20
+/** Evenly sample up to this many pages — enough to classify, cheap to read. */
+const SCANNED_SAMPLE_CAP = 12
+
+function samplePages(n: number, cap: number): number[] {
+  if (n <= cap) return Array.from({ length: n }, (_, i) => i + 1)
+  const out = new Set<number>()
+  for (let i = 0; i < cap; i++) out.add(Math.floor((i * (n - 1)) / (cap - 1)) + 1)
+  return [...out]
+}
+
+/**
+ * True when the file looks like an image-only scan (no selectable text), which
+ * the app cannot translate without OCR. Deliberately conservative: it flags a
+ * PDF ONLY if none of the sampled pages yield any real text, so a genuine text
+ * book (or one with OCR text) is never wrongly rejected. Returns false on any
+ * parse error — a failed probe must not block an upload; the pipeline reports
+ * real errors later.
+ */
+export async function detectScannedPdf(inputPath: string): Promise<boolean> {
+  let pdf: { numPages: number; getPage: (n: number) => Promise<any>; destroy?: () => Promise<void> } | null = null
+  try {
+    const data = new Uint8Array(fs.readFileSync(inputPath))
+    const doc = await pdfjsLib.getDocument({ data, isEvalSupported: false, useSystemFonts: true }).promise
+    pdf = doc
+    const n = doc.numPages
+    if (!n || n <= 0) return false
+    let textPages = 0
+    for (const p of samplePages(n, SCANNED_SAMPLE_CAP)) {
+      let chars = 0
+      try {
+        const page = await doc.getPage(p)
+        const tc = await page.getTextContent()
+        for (const it of tc.items) {
+          const s = (it as { str?: string }).str
+          if (s) chars += s.replace(/\s+/g, '').length
+        }
+        await page.cleanup()
+      } catch {
+        continue
+      }
+      if (chars >= SCANNED_TEXT_PAGE_MIN) textPages++
+    }
+    return textPages === 0
+  } catch {
+    return false
+  } finally {
+    try {
+      await pdf?.destroy?.()
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 /**
  * Extract a flat content-block stream from the PDF at `inputPath`.
  *

@@ -76,7 +76,21 @@ export function TaskQueueScreen() {
   async function handleAddPdf() {
     if (!ensureModelReady()) return
     const path = await appApi.openPdfDialog()
-    if (path) void addJob(path)
+    if (path && (await ensureTextPdf(path))) void addJob(path)
+  }
+
+  // Reject image-only scans (no selectable text) — the app has no OCR. A failed
+  // probe must NOT block; return true so the pipeline reports real errors later.
+  async function ensureTextPdf(path: string): Promise<boolean> {
+    try {
+      if (await appApi.detectScanned(path)) {
+        useUiStore.getState().showToast('检测到扫描版 PDF（页面没有可选中的文字），暂不支持扫描件翻译')
+        return false
+      }
+      return true
+    } catch {
+      return true
+    }
   }
 
   // Native file drop (Electron exposes the absolute path on File.path).
@@ -86,7 +100,7 @@ export function TaskQueueScreen() {
     const file = e.dataTransfer.files?.[0] as (File & { path?: string }) | undefined
     const p = file?.path
     if (p && /\.pdf$/i.test(p)) {
-      if (ensureModelReady()) void addJob(p)
+      if (ensureModelReady()) void (async () => { if (await ensureTextPdf(p)) void addJob(p) })()
     } else if (p) {
       setDropHint(`仅支持 PDF 文件，已忽略「${basename(p)}」`)
       window.setTimeout(() => setDropHint(''), 4000)

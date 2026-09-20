@@ -6,6 +6,7 @@ import { registerJobIpc } from './queue/ipc.ts'
 import { ModelManager } from './models/manager.ts'
 import { registerModelIpc } from './models/ipc.ts'
 import { createPipeline } from './pipeline.ts'
+import { detectScannedPdf } from './pdf/capture/flow.ts'
 import { detectGpu } from './models/gpu.ts'
 import { detectCpu, describeCpu, getDefaultThreads } from './models/cpu-info.ts'
 import { SettingsStore, defaultSettings, settingsFileFor } from './settings.ts'
@@ -201,6 +202,9 @@ function registerIpc(): void {
     if (res.canceled || res.filePaths.length === 0) return null
     return res.filePaths[0]
   })
+
+  // ---- Scanned-PDF probe (upload gate): image-only scans can't be translated ----
+  ipcMain.handle('app:detect-scanned', (_e, path: string) => detectScannedPdf(path))
 
   ipcMain.handle('dialog:open-dir', async (_e, current?: string) => {
     const win = mainWindow

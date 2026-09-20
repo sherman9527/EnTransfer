@@ -192,6 +192,13 @@ check('没有静态 require/import node-llama-cpp', !staticLlamaImport, '发现�
   check('JPX/未提取图片走 renderClip 栅格化', cap.includes('rasterizePlacements(') && cap.includes('matchedSet.has(p)'), 'JPEG2000 图片会被静默丢弃（缺图回归）')
   const pageRenderer = readText('electron/pdf/capture/page-renderer.ts')
   check('pdf.js 运行时 canvas 解析钩子', pageRenderer.includes('_resolveFilename') && pageRenderer.includes("'canvas' ? '@napi-rs/canvas'"), 'pdf.js 经运行时 require() 加载，build 期 canvas 别名对其内部 require(canvas) 无效 → 含图页栅格化崩 Cannot find module canvas')
+  // Scanned-PDF upload gate must be wired end-to-end (probe -> IPC -> renderer).
+  const preload = readText('electron/preload.ts')
+  const mainTs = readText('electron/main.ts')
+  const tqs = readText('renderer/src/screens/TaskQueueScreen.tsx')
+  check('扫描件探测函数存在（无文字=扫描）', cap.includes('export async function detectScannedPdf'), '缺少扫描 PDF 判定')
+  check('扫描件 IPC 通道打通 (preload+main)', preload.includes('app:detect-scanned') && mainTs.includes("ipcMain.handle('app:detect-scanned'"), '探测函数没接上 IPC，上传不会拦截扫描件')
+  check('上传入口按扫描件拦截', tqs.includes('ensureTextPdf('), '扫描版 PDF 会被排进队列产出空译文')
 }
 
 // ── 4. 资源文件检查 ───────────────────────────────────
