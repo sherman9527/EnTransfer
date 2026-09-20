@@ -2,7 +2,7 @@
 
 > 状态：**当前实现快照**（2026-09-20）。
 > 说明：本文描述**实际落地**的架构;早期规划见 [`architecture/TECH-SELECTION.md`](./architecture/TECH-SELECTION.md),其中若干选型已被自测数据推翻(见 §2.3)。
-> 配套图:`docs/architecture/ARCHITECTURE.drawio`(draw.io 多页,可编辑),本页内嵌 Mermaid 便于直接阅读。
+> 配套图:`docs/architecture/app-architecture.drawio`(draw.io 多页,可编辑),本页内嵌 Mermaid 便于直接阅读。
 
 **一句话**:离线、本地、单机的英译中 PDF 翻译器。Electron 主进程用量化 LLM 推理(无云端、无 Python sidecar),Chromium 重排版输出中文 PDF。全中文 UI。
 
@@ -48,7 +48,7 @@
 
 ## 2. 总体架构
 
-📐 draw.io:`ARCHITECTURE.drawio` → 页 **1-总体架构**
+📐 draw.io:`app-architecture.drawio` → 页 **1-总体架构**
 
 ```mermaid
 flowchart LR

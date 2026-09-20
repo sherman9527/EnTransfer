@@ -1,0 +1,122 @@
+<mxfile host="app.diagrams.net" modified="2026-09-20T00:00:00.000Z" agent="通事官" version="24.0.0" type="device">
+  <diagram id="arch-overview" name="1-总体架构">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="720" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p1_title" value="通事官 — 总体架构（Electron 双进程 + 离线本地推理）" style="text;html=1;fontSize=18;fontStyle=1;fontColor=#1a1a2e;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="700" height="30" as="geometry" /></mxCell>
+        <mxCell id="p1_legend" value="蓝=编排/主进程  橙=原生引擎  绿=PDF 处理  紫=渲染进程  黄=外部/系统  灰=存储" style="text;html=1;fontSize=11;fontColor=#666666;" vertex="1" parent="1"><mxGeometry x="40" y="52" width="800" height="20" as="geometry" /></mxCell>
+
+        <mxCell id="p1_cmain" value="主进程  Electron / Node.js" style="rounded=1;html=1;fillColor=#f5f5f5;strokeColor=#666666;verticalAlign=top;fontStyle=1;fontSize=13;" vertex="1" parent="1"><mxGeometry x="40" y="90" width="600" height="360" as="geometry" /></mxCell>
+        <mxCell id="p1_main" value="electron/main.ts&#10;入口 · IPC 注册 · 窗口" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1"><mxGeometry x="70" y="130" width="250" height="50" as="geometry" /></mxCell>
+        <mxCell id="p1_queue" value="queue/manager.ts&#10;FIFO · 单并发 · 状态机 · checkpoint" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1"><mxGeometry x="350" y="130" width="270" height="50" as="geometry" /></mxCell>
+        <mxCell id="p1_pipeline" value="pipeline.ts&#10;编排 4 阶段" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1"><mxGeometry x="70" y="200" width="250" height="50" as="geometry" /></mxCell>
+        <mxCell id="p1_engine" value="models/manager · engine-manager&#10;llama-engine (node-llama-cpp Vulkan/CPU)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1"><mxGeometry x="350" y="200" width="270" height="55" as="geometry" /></mxCell>
+        <mxCell id="p1_capture" value="pdf/capture&#10;flow · line-utils · page-renderer&#10;layout-detector (C1 PP-DocLayout)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1"><mxGeometry x="70" y="270" width="250" height="60" as="geometry" /></mxCell>
+        <mxCell id="p1_typeset" value="pdf/typeset&#10;chromiumPrint · htmlFlow&#10;flow (pdf-lib 兜底)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1"><mxGeometry x="350" y="270" width="270" height="60" as="geometry" /></mxCell>
+        <mxCell id="p1_settings" value="settings.ts · translation-cache" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1"><mxGeometry x="70" y="350" width="250" height="45" as="geometry" /></mxCell>
+        <mxCell id="p1_preload" value="preload.ts (contextBridge)&#10;安全 IPC 面 · 无 Node 暴露" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1"><mxGeometry x="350" y="350" width="270" height="45" as="geometry" /></mxCell>
+
+        <mxCell id="p1_crend" value="渲染进程  React 18 + Zustand + Tailwind" style="rounded=1;html=1;fillColor=#f5f5f5;strokeColor=#666666;verticalAlign=top;fontStyle=1;fontSize=13;" vertex="1" parent="1"><mxGeometry x="700" y="90" width="360" height="360" as="geometry" /></mxCell>
+        <mxCell id="p1_screens" value="screens&#10;任务队列 · 模型管理 · 设置" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1"><mxGeometry x="725" y="130" width="310" height="50" as="geometry" /></mxCell>
+        <mxCell id="p1_stores" value="Zustand stores&#10;queueStore · modelStore · settingsStore · uiStore" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1"><mxGeometry x="725" y="200" width="310" height="55" as="geometry" /></mxCell>
+        <mxCell id="p1_app" value="App.tsx — 屏幕导航 + 全局 toast" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1"><mxGeometry x="725" y="275" width="310" height="45" as="geometry" /></mxCell>
+        <mxCell id="p1_client" value="ipc/client.ts (window.api)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1"><mxGeometry x="725" y="340" width="310" height="45" as="geometry" /></mxCell>
+
+        <mxCell id="p1_model" value="模型下载 ModelScope&#10;Qwen3-1.7B-Q4_K_M ~1.2GB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1"><mxGeometry x="40" y="480" width="280" height="50" as="geometry" /></mxCell>
+        <mxCell id="p1_fs" value="文件系统 data/ + models/&#10;安装目录内 · 卸载零残留" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1"><mxGeometry x="350" y="480" width="280" height="50" as="geometry" /></mxCell>
+        <mxCell id="p1_chromium" value="隐藏 Chromium 窗口&#10;printToPDF 排版" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1"><mxGeometry x="660" y="480" width="280" height="50" as="geometry" /></mxCell>
+
+        <mxCell id="p1_e1" style="html=1;endArrow=block;startArrow=block;" edge="1" parent="1" source="p1_preload" target="p1_client"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1_e2" style="html=1;endArrow=block;" edge="1" parent="1" source="p1_main" target="p1_pipeline"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1_e3" style="html=1;endArrow=block;" edge="1" parent="1" source="p1_pipeline" target="p1_capture"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1_e4" style="html=1;endArrow=block;" edge="1" parent="1" source="p1_pipeline" target="p1_typeset"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1_e5" style="html=1;endArrow=block;" edge="1" parent="1" source="p1_pipeline" target="p1_engine"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1_e6" style="html=1;endArrow=block;" edge="1" parent="1" source="p1_engine" target="p1_model"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1_e7" style="html=1;endArrow=block;" edge="1" parent="1" source="p1_typeset" target="p1_chromium"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p1_e8" style="html=1;endArrow=block;" edge="1" parent="1" source="p1_capture" target="p1_fs"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="pipeline-flow" name="2-翻译流水线">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="720" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p2_title" value="翻译流水线数据流（pipeline.ts 编排 · 崩溃可断点续传）" style="text;html=1;fontSize=18;fontStyle=1;fontColor=#1a1a2e;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="800" height="30" as="geometry" /></mxCell>
+
+        <mxCell id="p2_src" value="源 PDF" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="70" width="110" height="50" as="geometry" /></mxCell>
+        <mxCell id="p2_p1" value="① 提取&#10;0–5%" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="190" y="70" width="130" height="50" as="geometry" /></mxCell>
+        <mxCell id="p2_blocks" value="ContentBlock[]&#10;标题/正文/代码/表格/图" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1"><mxGeometry x="360" y="70" width="150" height="50" as="geometry" /></mxCell>
+        <mxCell id="p2_p2" value="② 翻译&#10;5–90%" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="550" y="70" width="130" height="50" as="geometry" /></mxCell>
+        <mxCell id="p2_tr" value="已译块" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1"><mxGeometry x="720" y="70" width="110" height="50" as="geometry" /></mxCell>
+        <mxCell id="p2_p3" value="③ 排版&#10;90–98%" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="870" y="70" width="130" height="50" as="geometry" /></mxCell>
+        <mxCell id="p2_p4" value="④ 导出&#10;98–100%" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1040" y="70" width="120" height="50" as="geometry" /></mxCell>
+        <mxCell id="p2_out" value="中文 PDF" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1200" y="70" width="110" height="50" as="geometry" /></mxCell>
+
+        <mxCell id="p2_es1" style="html=1;endArrow=block;" edge="1" parent="1" source="p2_src" target="p2_p1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p2_es2" style="html=1;endArrow=block;" edge="1" parent="1" source="p2_p1" target="p2_blocks"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p2_es3" style="html=1;endArrow=block;" edge="1" parent="1" source="p2_blocks" target="p2_p2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p2_es4" style="html=1;endArrow=block;" edge="1" parent="1" source="p2_p2" target="p2_tr"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p2_es5" style="html=1;endArrow=block;" edge="1" parent="1" source="p2_tr" target="p2_p3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p2_es6" style="html=1;endArrow=block;" edge="1" parent="1" source="p2_p3" target="p2_p4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p2_es7" style="html=1;endArrow=block;" edge="1" parent="1" source="p2_p4" target="p2_out"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+        <mxCell id="p2_g1" value="① 提取子步骤 (capture/flow.ts)&#10;• pdfjs getTextContent：坐标/字号/字体名&#10;• 阅读顺序 · 分栏聚类 · 段落合并 · 去连字符&#10;• 元素分类：标题/正文/代码/表格/图/页眉页脚&#10;• 运行家具剥离 + 出血页码清理 (保守)&#10;• C1 PP-DocLayout-S (ONNX/CPU ~50ms页) 稀疏图区&#10;• 图片：pdf-lib 字节提取(DCT/Flate) + JPX 栅格化(pdfjs)&#10;• 重叠 placement 去重 (base+软掩码→1，防重复)" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#f0f9f0;strokeColor=#82b366;fontSize=11;align=left;verticalAlign=top;spacing=6;" vertex="1" parent="1"><mxGeometry x="120" y="170" width="360" height="150" as="geometry" /></mxCell>
+        <mxCell id="p2_g2" value="② 翻译子步骤 (pipeline.ts + llama-engine)&#10;• 仅译标题/正文；代码/表格/图 VERBATIM 不译&#10;• 编号分批 batch (每批多段，带序号防错位)&#10;• Qwen3-1.7B temp0.1 / topK20 / topP0.9 · 关思考&#10;• 校验：sentinel 多重集 / 数量级 / 空槽拒收&#10;• 占位符冻结→恢复 (§A§ 公式/URL/引用)&#10;• 熔断：处理≥200 且回退&gt;30% → 中止任务&#10;• 缓存 key = model+temp+topK+topP+promptVer" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#fff7ec;strokeColor=#d79b00;fontSize=11;align=left;verticalAlign=top;spacing=6;" vertex="1" parent="1"><mxGeometry x="520" y="170" width="380" height="150" as="geometry" /></mxCell>
+        <mxCell id="p2_g3" value="③ 排版子步骤 (typeset)&#10;• blocksToHtml → Chromium printToPDF (主路径)&#10;• 全新 A4 版面，忽略原版式，字体子集内嵌&#10;• 兜底：pdf-lib typesetFlow (in-place)&#10;• 溢出：自适应字号 14→6pt&#10;④ 导出：原子写 tmp→rename&#10;崩溃安全：每译单元 append-only checkpoint" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#eef3fb;strokeColor=#6c8ebf;fontSize=11;align=left;verticalAlign=top;spacing=6;" vertex="1" parent="1"><mxGeometry x="940" y="170" width="360" height="150" as="geometry" /></mxCell>
+
+        <mxCell id="p2_sm" value="任务状态机：queued → extracting → translating → typesetting → exporting → done   (各阶段可 paused / canceled / error；暂停/取消经 AbortController 协作式传播)" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontStyle=2;" vertex="1" parent="1"><mxGeometry x="120" y="360" width="1180" height="45" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="size-compression" name="3-体积压缩">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="720" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p3_title" value="安装包体积压缩（交付 ~120 MB，不含模型）" style="text;html=1;fontSize=18;fontStyle=1;fontColor=#1a1a2e;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="700" height="30" as="geometry" /></mxCell>
+
+        <mxCell id="p3_start" value="未优化基线&#10;Electron + 全部原生依赖&#10;~300+ MB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="60" y="80" width="240" height="60" as="geometry" /></mxCell>
+
+        <mxCell id="p3_1" value="① 模型外挂下载：不打包 1.2GB GGUF（最大单项，运行时从 ModelScope 拉取）" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="60" y="170" width="980" height="40" as="geometry" /></mxCell>
+        <mxCell id="p3_2" value="② after-pack：Electron locales 55 → 2（zh-CN + en-US），省 ~40 MB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="90" y="220" width="920" height="40" as="geometry" /></mxCell>
+        <mxCell id="p3_3" value="③ after-pack：删 onnxruntime GPU EP（DirectML/dxcompiler/dxil），检测器只用 CPU EP，省 ~36 MB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="120" y="270" width="860" height="40" as="geometry" /></mxCell>
+        <mxCell id="p3_4" value="④ after-pack：删 node-llama-cpp gitRelease.bundle（源码构建 packfile），省 ~33 MB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="150" y="320" width="800" height="40" as="geometry" /></mxCell>
+        <mxCell id="p3_5" value="⑤ after-pack：裁剪 ggml-cpu ISA 变体（只留 x64/sse42/ivybridge/haswell/alderlake/zen4 阶梯）" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="180" y="370" width="740" height="40" as="geometry" /></mxCell>
+        <mxCell id="p3_6" value="⑥ files 排除：全量字体（仅留子集）、@node-llama-cpp cuda/arm64、onnxruntime darwin/linux/arm64、lucide-react（已 tree-shake 进 renderer）" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="210" y="420" width="680" height="40" as="geometry" /></mxCell>
+        <mxCell id="p3_7" value="⑦ 字体子集化：YaHei Regular/Bold + Consolas 子集（各 ~12–15MB）；弃 NotoSansSC 全量（-13MB）" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="240" y="470" width="620" height="40" as="geometry" /></mxCell>
+        <mxCell id="p3_8" value="⑧ asar 打包 + asarUnpack 仅原生模块；npmRebuild:false（用预编译二进制）" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="270" y="520" width="560" height="40" as="geometry" /></mxCell>
+        <mxCell id="p3_9" value="⑨ NSIS compression: maximum（LZMA）" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="300" y="570" width="500" height="36" as="geometry" /></mxCell>
+
+        <mxCell id="p3_end" value="交付安装包&#10;~120 MB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="300" y="630" width="500" height="50" as="geometry" /></mxCell>
+        <mxCell id="p3_e0" style="html=1;endArrow=block;" edge="1" parent="1" source="p3_start" target="p3_1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="p3_e9" style="html=1;endArrow=block;" edge="1" parent="1" source="p3_9" target="p3_end"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="quality-gates" name="4-质量把控">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="720" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p4_title" value="迭代质量把控（多层门禁 + TDD 防回归）" style="text;html=1;fontSize=18;fontStyle=1;fontColor=#1a1a2e;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="700" height="30" as="geometry" /></mxCell>
+
+        <mxCell id="p4_gate" value="提交门禁  npm run gate&#10;= typecheck（tsc strict + noUnusedLocals/Params）&#10;+ 回归套件 R1–R24（纯函数，&lt;1s）" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="60" y="80" width="440" height="70" as="geometry" /></mxCell>
+        <mxCell id="p4_verify" value="结构不变式  npm run verify — 54 项&#10;package.json / 构建产物 / 源码静态 / 3g 回归不变式(对应 R#) / 资源 / asar" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="60" y="170" width="440" height="60" as="geometry" /></mxCell>
+        <mxCell id="p4_e2e" value="端到端  e2e-test.ts&#10;12 页快测 / 全书 353 页回归&#10;黄金样例 docs/E2E-输出样例-*.pdf" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="60" y="250" width="440" height="60" as="geometry" /></mxCell>
+        <mxCell id="p4_control" value="对照测试（防误伤）&#10;改表格/代码检测后，Manning 9 张真表格必须存活" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="60" y="330" width="440" height="50" as="geometry" /></mxCell>
+        <mxCell id="p4_port" value="便携性演练  install-drill.ps1&#10;装 → 跑 → 卸 端到端，卸载零残留（运行期文件只落安装目录 data/ models/）" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="60" y="400" width="440" height="60" as="geometry" /></mxCell>
+        <mxCell id="p4_breaker" value="运行期熔断&#10;翻译回退 &gt;30% 即中止任务，绝不产出静默劣化译文" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="60" y="480" width="440" height="50" as="geometry" /></mxCell>
+
+        <mxCell id="p4_tdd" value="TDD 防回归闭环&#10;1) 先在 regression.__test__.ts 写红色 R# 用例（旧行为必失败）&#10;2) 修代码变绿&#10;3) 无法单测的时序约束固化进 verify-build.js 结构不变式&#10;4) 台账 docs/REGRESSION.md · 坑 docs/KNOWN-ISSUES.md · 复盘 docs/LESSONS-2026-09.md" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1"><mxGeometry x="560" y="80" width="480" height="200" as="geometry" /></mxCell>
+        <mxCell id="p4_principle" value="核心原则&#10;• 一切自测：不信外部报告，A/B ≥ 50 例&#10;• 任何改动先测，有提升才采纳&#10;• 修根因而非点修（做对照控制测试）&#10;• 提交前 gate 无一例外" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1"><mxGeometry x="560" y="300" width="480" height="150" as="geometry" /></mxCell>
+
+        <mxCell id="p4_flow" value="改动 → gate（必过）→ verify（涉打包/结构）→ E2E（涉 pipeline/engine/typeset）→ 全书回归（发版前）→ install-drill（发版前）" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;spacing=8;" vertex="1" parent="1"><mxGeometry x="60" y="560" width="980" height="50" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
