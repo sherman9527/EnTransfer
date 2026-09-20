@@ -2,7 +2,7 @@
 
 > 状态：**当前实现快照**（2026-09-20）。
 > 说明：本文描述**实际落地**的架构;早期规划见 [`architecture/TECH-SELECTION.md`](./architecture/TECH-SELECTION.md),其中若干选型已被自测数据推翻(见 §2.3)。
-> 配套图:`docs/architecture/app-architecture.drawio`(draw.io 多页,可编辑),本页内嵌 Mermaid 便于直接阅读。
+> 图:以下 4 张为内嵌 PNG(`docs/architecture/images/`,由 `scripts/gen-arch-diagrams.js` 生成);可编辑源文件 `docs/architecture/app-architecture.drawio`(draw.io 多页)。
 
 **一句话**:离线、本地、单机的英译中 PDF 翻译器。Electron 主进程用量化 LLM 推理(无云端、无 Python sidecar),Chromium 重排版输出中文 PDF。全中文 UI。
 
@@ -48,27 +48,7 @@
 
 ## 2. 总体架构
 
-📐 draw.io:`app-architecture.drawio` → 页 **1-总体架构**
-
-```mermaid
-flowchart LR
-  subgraph REND["渲染进程 React+Zustand"]
-    SCR["screens 队列/模型/设置"]; ST["stores queue/model/settings/ui"]; CLI["ipc/client (window.api)"]
-  end
-  subgraph MAIN["主进程 Node.js"]
-    M["main.ts 入口/IPC"]; Q["queue/manager FIFO·状态机·checkpoint"]; P["pipeline 编排"]
-    E["models/engine (node-llama-cpp)"]; CAP["pdf/capture"]; TYP["pdf/typeset"]; SET["settings·translation-cache"]
-  end
-  PRE["preload.ts contextBridge"]
-  subgraph EXT["外部/系统"]
-    DL["模型下载 ModelScope Qwen3-1.7B ~1.2GB"]; FS["文件系统 data/ + models/"]; CH["隐藏 Chromium printToPDF"]
-  end
-  SCR --- ST --- CLI <-.->|invoke / job:updated| PRE <-.-> M
-  M --> Q --> P
-  P --> CAP --> FS
-  P --> TYP --> CH
-  P --> E --> DL
-```
+![总体架构](./architecture/images/1-overview.png)
 
 **进程边界与安全**:渲染进程无 Node 能力,一切经 `preload` 的 `contextBridge` 暴露的 `window.api`(类型化 IPC 面)。主进程把纯 JS 依赖(pdfjs/pdf-lib/fontkit)打进产物;`node-llama-cpp`/`onnxruntime`/`@napi-rs/canvas` 保持外部 + `asarUnpack`。
 
@@ -76,12 +56,7 @@ flowchart LR
 
 ## 3. 翻译流水线
 
-📐 draw.io 页 **2-翻译流水线**
-
-```mermaid
-flowchart LR
-  SRC[源 PDF] --> A["① 提取 0–5%"] --> BLK["ContentBlock[]"] --> B["② 翻译 5–90%"] --> TR[已译块] --> C["③ 排版 90–98%"] --> D["④ 导出 98–100%"] --> OUT[中文 PDF]
-```
+![翻译流水线](./architecture/images/2-pipeline.png)
 
 状态机:`queued → extracting → translating → typesetting → exporting → done`,各阶段可 `paused/canceled/error`;暂停/取消经 `AbortController` 协作式传播;每译单元 **append-only checkpoint**,崩溃后断点续传。
 
@@ -108,7 +83,9 @@ flowchart LR
 
 ## 4. 体积压缩
 
-📐 draw.io 页 **3-体积压缩** — 交付安装包 **~120 MB(不含模型)**。
+![体积压缩](./architecture/images/3-size.png)
+
+交付安装包 **~120 MB(不含模型)**。
 
 | # | 手段 | 位置 | 收益 |
 |---|---|---|---|
@@ -126,7 +103,7 @@ flowchart LR
 
 ## 5. 迭代质量把控
 
-📐 draw.io 页 **4-质量把控**
+![质量把控](./architecture/images/4-quality.png)
 
 多层门禁,提交前无一例外:
 
